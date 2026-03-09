@@ -1,0 +1,8 @@
+{
+  "rq1_ast_top1_accuracy": 1.0,
+  "rq1_naming_top1_accuracy": 1.0,
+  "rq1_ast_top3_accuracy": 1.0,
+  "rq1_naming_top3_accuracy": 1.0,
+  "rq1_ast_mrr": 1.0,
+  "rq1_naming_mrr": 1.0
+}

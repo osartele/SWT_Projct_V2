@@ -1,0 +1,18 @@
+[
+  {
+    "sample_id": "32488797_0",
+    "project_id": "32488797",
+    "operator": "predicate_inversion",
+    "method_identifier": "emitHumanDescription",
+    "method_signature": "void emitHumanDescription(StringBuilder builder, List<FieldBinding> bindings)",
+    "original_body": "static void emitHumanDescription(StringBuilder builder, List<FieldBinding> bindings) {\n        switch (bindings.size()) {\n            case 1:\n                builder.append(bindings.get(0).getDescription());\n                break;\n            case 2:\n                builder.append(bindings.get(0).getDescription())\n                        .append(\" and \")\n                        .append(bindings.get(1).getDescription());\n                break;\n            default:\n                for (int i = 0, count = bindings.size(); i < count; i++) {\n                    FieldBinding requiredField = bindings.get(i);\n                    if (i != 0) {\n                        builder.append(\", \");\n                    }\n                    if (i == count - 1) {\n                        builder.append(\"and \");\n                    }\n                    builder.append(requiredField.getDescription());\n                }\n                break;\n        }\n    }",
+    "evolved_body": "static void emitHumanDescription(StringBuilder builder, List<FieldBinding> bindings) {\n        switch (bindings.size()) {\n            case 1:\n                builder.append(bindings.get(0).getDescription());\n                break;\n            case 2:\n                builder.append(bindings.get(0).getDescription())\n                        .append(\" and \")\n                        .append(bindings.get(1).getDescription());\n                break;\n            default:\n                for (int i = 0, count = bindings.size(); i < count; i++) {\n                    FieldBinding requiredField = bindings.get(i);\n                    if (i != 0) {\n                        builder.append(\", \");\n                    }\n                    if (i != count - 1) {\n                        builder.append(\"and \");\n                    }\n                    builder.append(requiredField.getDescription());\n                }\n                break;\n        }\n    }",
+    "target_file": "vitaminsaber/src/main/java/com/w2ji/vitaminsaber/internal/ResourceInjector.java",
+    "diff": "--- original\n+++ evolved\n@@ -14,7 +14,7 @@\n                     if (i != 0) {\n                         builder.append(\", \");\n                     }\n-                    if (i == count - 1) {\n+                    if (i != count - 1) {\n                         builder.append(\"and \");\n                     }\n                     builder.append(requiredField.getDescription());\n",
+    "replaced_exact_body": true,
+    "static_validation_passed": true,
+    "validation_notes": [
+      "static_diff_created"
+    ]
+  }
+]
