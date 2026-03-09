@@ -1,0 +1,67 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+
+	<parent>
+		<groupId>com.umlet</groupId>
+		<artifactId>umlet-parent</artifactId>
+		<version>15.2.0-SNAPSHOT</version>
+	</parent>
+
+	<artifactId>umlet-elements</artifactId>
+
+	<properties>
+		<javacc.gen.dir>${project.basedir}/src/main/javacc</javacc.gen.dir> <!-- reuse the annotation-processing gendir to avoid too many separate src folders for eclipse plugin; perhaps it would be more correct to create a separate javacc subdir -->
+	</properties>
+
+	<build>
+		<plugins>
+			<!-- add the generated sources to the build path -->
+			<plugin>
+				<groupId>org.codehaus.mojo</groupId>
+				<artifactId>build-helper-maven-plugin</artifactId>
+				<version>3.2.0</version>
+				<executions>
+					<execution>
+						<id>add-source</id>
+						<phase>generate-sources</phase>
+						<goals>
+							<goal>add-source</goal>
+						</goals>
+						<configuration>
+							<sources>
+								<source>${javacc.gen.dir}</source>
+							</sources>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+		</plugins>
+	</build>
+	<profiles>
+		<profile>
+			<id>javacc</id>
+			<build>
+				<plugins>
+			<!-- generate javacc classes (it would be preferable to generate them into a separate target/generated-sources subdir, but this currently doesn't work with the way how source folders are linked in the umlet-eclipse-plugin project) -->
+			<plugin>
+				<groupId>org.codehaus.mojo</groupId>
+				<artifactId>javacc-maven-plugin</artifactId>
+				<version>3.1.1</version>
+				<executions>
+					<execution>
+						<id>javacc</id>
+						<phase>generate-sources</phase>
+						<goals>
+							<goal>javacc</goal>
+						</goals>
+						<configuration>
+							<outputDirectory>${javacc.gen.dir}</outputDirectory>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+				</plugins>
+			</build>
+		</profile>
+	</profiles>
+</project>

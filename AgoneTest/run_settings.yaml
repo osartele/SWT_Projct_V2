@@ -1,0 +1,44 @@
+﻿paths:
+  dataset_dir: ../classes2test
+  repos_dir: ../repos
+  output_dir: ./output_agentic
+  workspace_dir: ./workspaces_agentic
+
+filters:
+  project_ids: []
+  sample_ids: []
+  max_samples:
+
+agents:
+  generator:
+    model: gemini-cli
+    command: gemini
+    temperature: 0
+  critic:
+    model: gemini-cli
+    command: gemini
+    temperature: 0
+  analyst:
+    model: gemini-cli
+    command: gemini
+    temperature: 0
+
+strategies:
+  - regenerative
+  - iterative_healing
+
+limits:
+  max_semantic_rejections: 3
+  max_execution_iterations: 5
+  max_failure_log_chars: 8000
+
+evolution:
+  operators:
+    - predicate_inversion
+    - boundary_shift
+    - return_value_change
+    - exception_path_change
+
+baselines:
+  run_human: true
+  run_evosuite: true

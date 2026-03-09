@@ -1,0 +1,88 @@
+{
+  "sync_summary": [
+    {
+      "Generator(LLM/EVOSUITE)": "gemini-cli",
+      "Prompt_Technique": "iterative_healing",
+      "Compilation": 1.0,
+      "Branch_Coverage": 26.47,
+      "Line_Coverage": 16.05,
+      "Method_Coverage": 8.33,
+      "Mutation_Coverage": 17.24,
+      "Inter_Agent_Loops": 0.0,
+      "Execution_Iterations": 1.0,
+      "Total_Tokens": 1954.0,
+      "Intent_Preservation": 0.9
+    },
+    {
+      "Generator(LLM/EVOSUITE)": "human",
+      "Prompt_Technique": "iterative_healing",
+      "Compilation": 1.0,
+      "Branch_Coverage": 26.47,
+      "Line_Coverage": 16.05,
+      "Method_Coverage": 8.33,
+      "Mutation_Coverage": 0.0,
+      "Inter_Agent_Loops": 0.0,
+      "Execution_Iterations": 0.0,
+      "Total_Tokens": 0.0,
+      "Intent_Preservation": NaN
+    }
+  ],
+  "rq2": [
+    {
+      "Generator(LLM/EVOSUITE)": "gemini-cli",
+      "Prompt_Technique": "iterative_healing",
+      "Compilation": 1.0,
+      "Line_Coverage": 16.05,
+      "Branch_Coverage": 26.47,
+      "Method_Coverage": 8.33,
+      "Mutation_Coverage": 17.24
+    },
+    {
+      "Generator(LLM/EVOSUITE)": "human",
+      "Prompt_Technique": "iterative_healing",
+      "Compilation": 1.0,
+      "Line_Coverage": 16.05,
+      "Branch_Coverage": 26.47,
+      "Method_Coverage": 8.33,
+      "Mutation_Coverage": 0.0
+    }
+  ],
+  "rq3": [
+    {
+      "Generator(LLM/EVOSUITE)": "gemini-cli",
+      "Prompt_Technique": "iterative_healing",
+      "Intent_Preservation": 0.9,
+      "Mutation_Coverage": 17.24
+    },
+    {
+      "Generator(LLM/EVOSUITE)": "human",
+      "Prompt_Technique": "iterative_healing",
+      "Intent_Preservation": NaN,
+      "Mutation_Coverage": 0.0
+    }
+  ],
+  "rq4": [
+    {
+      "Generator(LLM/EVOSUITE)": "gemini-cli",
+      "Prompt_Technique": "iterative_healing",
+      "Inter_Agent_Loops": 0.0,
+      "Execution_Iterations": 1.0,
+      "Total_Tokens": 1954.0
+    },
+    {
+      "Generator(LLM/EVOSUITE)": "human",
+      "Prompt_Technique": "iterative_healing",
+      "Inter_Agent_Loops": 0.0,
+      "Execution_Iterations": 0.0,
+      "Total_Tokens": 0.0
+    }
+  ],
+  "rq1": {
+    "ast_top1_accuracy": 1.0,
+    "naming_top1_accuracy": 1.0,
+    "ast_top3_accuracy": 1.0,
+    "naming_top3_accuracy": 1.0,
+    "ast_mrr": 1.0,
+    "naming_mrr": 1.0
+  }
+}

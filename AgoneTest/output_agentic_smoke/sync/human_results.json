@@ -1,0 +1,17 @@
+[
+  {
+    "sample_id": "32488797_0",
+    "project_id": "32488797",
+    "Prompt_Technique": "iterative_healing",
+    "Generator(LLM/EVOSUITE)": "human",
+    "compilation": 1,
+    "branch_coverage": 26.47,
+    "line_coverage": 16.05,
+    "method_coverage": 8.33,
+    "mutation_coverage": 0.0,
+    "Inter_Agent_Loops": 0,
+    "Execution_Iterations": 0,
+    "Total_Tokens": 0,
+    "Intent_Preservation_Score": null
+  }
+]

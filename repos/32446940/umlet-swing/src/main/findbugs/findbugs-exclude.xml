@@ -1,0 +1,9 @@
+<FindBugsFilter>
+	<Match>
+		<!-- TODO fix existing bugs and enable findbugs on this project -->
+		<Package name="~com.baselet.*" />
+	</Match>
+    <Match>
+        <Bug code="EI, EI2"/>
+    </Match>
+</FindBugsFilter>

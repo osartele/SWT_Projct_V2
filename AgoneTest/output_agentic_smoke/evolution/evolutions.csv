@@ -1,0 +1,59 @@
+sample_id,project_id,operator,method_identifier,method_signature,original_body,evolved_body,target_file,diff,replaced_exact_body,static_validation_passed,validation_notes
+32488797_0,32488797,predicate_inversion,emitHumanDescription,"void emitHumanDescription(StringBuilder builder, List<FieldBinding> bindings)","static void emitHumanDescription(StringBuilder builder, List<FieldBinding> bindings) {
+        switch (bindings.size()) {
+            case 1:
+                builder.append(bindings.get(0).getDescription());
+                break;
+            case 2:
+                builder.append(bindings.get(0).getDescription())
+                        .append("" and "")
+                        .append(bindings.get(1).getDescription());
+                break;
+            default:
+                for (int i = 0, count = bindings.size(); i < count; i++) {
+                    FieldBinding requiredField = bindings.get(i);
+                    if (i != 0) {
+                        builder.append("", "");
+                    }
+                    if (i == count - 1) {
+                        builder.append(""and "");
+                    }
+                    builder.append(requiredField.getDescription());
+                }
+                break;
+        }
+    }","static void emitHumanDescription(StringBuilder builder, List<FieldBinding> bindings) {
+        switch (bindings.size()) {
+            case 1:
+                builder.append(bindings.get(0).getDescription());
+                break;
+            case 2:
+                builder.append(bindings.get(0).getDescription())
+                        .append("" and "")
+                        .append(bindings.get(1).getDescription());
+                break;
+            default:
+                for (int i = 0, count = bindings.size(); i < count; i++) {
+                    FieldBinding requiredField = bindings.get(i);
+                    if (i != 0) {
+                        builder.append("", "");
+                    }
+                    if (i != count - 1) {
+                        builder.append(""and "");
+                    }
+                    builder.append(requiredField.getDescription());
+                }
+                break;
+        }
+    }",vitaminsaber/src/main/java/com/w2ji/vitaminsaber/internal/ResourceInjector.java,"--- original
++++ evolved
+@@ -14,7 +14,7 @@
+                     if (i != 0) {
+                         builder.append("", "");
+                     }
+-                    if (i == count - 1) {
++                    if (i != count - 1) {
+                         builder.append(""and "");
+                     }
+                     builder.append(requiredField.getDescription());
+",True,True,['static_diff_created']

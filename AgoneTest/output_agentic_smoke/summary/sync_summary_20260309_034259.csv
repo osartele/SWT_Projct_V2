@@ -1,0 +1,3 @@
+Generator(LLM/EVOSUITE),Prompt_Technique,Compilation,Branch_Coverage,Line_Coverage,Method_Coverage,Mutation_Coverage,Inter_Agent_Loops,Execution_Iterations,Total_Tokens,Intent_Preservation
+gemini-cli,iterative_healing,0.0,,,,,2.0,0.0,46628.0,0.65
+human,iterative_healing,1.0,26.47,16.05,8.33,0.0,0.0,0.0,0.0,

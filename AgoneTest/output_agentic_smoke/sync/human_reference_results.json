@@ -1,0 +1,17 @@
+[
+  {
+    "sample_id": "32488797_0",
+    "project_id": "32488797",
+    "Prompt_Technique": "reference",
+    "Generator(LLM/EVOSUITE)": "human_reference",
+    "compilation": 1,
+    "branch_coverage": 26.47,
+    "line_coverage": 16.05,
+    "method_coverage": 8.33,
+    "mutation_coverage": 17.24,
+    "Inter_Agent_Loops": 0,
+    "Execution_Iterations": 0,
+    "Total_Tokens": 0,
+    "Intent_Preservation_Score": null
+  }
+]
