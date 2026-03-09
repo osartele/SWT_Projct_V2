@@ -1,0 +1,565 @@
+{
+  "sample": {
+    "sample_id": "32488797_0",
+    "dataset_path": "C:\\Users\\osart\\SWT_Project_Try2\\classes2test\\32488797_0.json",
+    "project_id": "32488797",
+    "repo_path": "C:\\Users\\osart\\SWT_Project_Try2\\repos\\32488797",
+    "focal_class_name": "ResourceInjector",
+    "focal_class_path": "vitaminsaber/src/main/java/com/w2ji/vitaminsaber/internal/ResourceInjector.java",
+    "test_class_name": "ResourceInjectorTest",
+    "test_class_path": "vitaminsaber/src/test/java/com/w2ji/vitaminsaber/internal/ResourceInjectorTest.java",
+    "test_method_name": "humanDescriptionJoinWorks",
+    "labeled_focal_method": "emitHumanDescription",
+    "labeled_focal_signature": "void emitHumanDescription(StringBuilder builder, List<FieldBinding> bindings)",
+    "build_metadata": {
+      "build_system": "maven",
+      "module_path": "C:\\Users\\osart\\SWT_Project_Try2\\repos\\32488797\\vitaminsaber",
+      "java_version": "1.8",
+      "junit_version": "4",
+      "testng_version": null,
+      "compiler_version": "3.8.1",
+      "has_mockito": false
+    },
+    "runnable": true,
+    "skip_reason": null,
+    "repository_url": "https://github.com/w2ji/VitaminSaber",
+    "focal_method_body": "static void emitHumanDescription(StringBuilder builder, List<FieldBinding> bindings) {\n        switch (bindings.size()) {\n            case 1:\n                builder.append(bindings.get(0).getDescription());\n                break;\n            case 2:\n                builder.append(bindings.get(0).getDescription())\n                        .append(\" and \")\n                        .append(bindings.get(1).getDescription());\n                break;\n            default:\n                for (int i = 0, count = bindings.size(); i < count; i++) {\n                    FieldBinding requiredField = bindings.get(i);\n                    if (i != 0) {\n                        builder.append(\", \");\n                    }\n                    if (i == count - 1) {\n                        builder.append(\"and \");\n                    }\n                    builder.append(requiredField.getDescription());\n                }\n                break;\n        }\n    }",
+    "raw_sample": {
+      "test_class": {
+        "identifier": "ResourceInjectorTest",
+        "superclass": "",
+        "interfaces": "",
+        "fields": [],
+        "file": "vitaminsaber/src/test/java/com/w2ji/vitaminsaber/internal/ResourceInjectorTest.java"
+      },
+      "test_case": {
+        "identifier": "humanDescriptionJoinWorks",
+        "parameters": "()",
+        "modifiers": "@Test public",
+        "return": "void",
+        "body": "@Test\n    public void humanDescriptionJoinWorks() {\n\n        FieldBinding one = new FieldBinding(\"one\", new FakeTypeMirror());\n        FieldBinding two = new FieldBinding(\"two\", new FakeTypeMirror());\n        FieldBinding three = new FieldBinding(\"three\", new FakeTypeMirror());\n\n        StringBuilder builder1 = new StringBuilder();\n        emitHumanDescription(builder1, asList(one));\n        assertThat(builder1.toString()).isEqualTo(\"field 'one'\");\n\n        StringBuilder builder2 = new StringBuilder();\n        emitHumanDescription(builder2, asList(one, two));\n        assertThat(builder2.toString()).isEqualTo(\"field 'one' and field 'two'\");\n\n        StringBuilder builder3 = new StringBuilder();\n        emitHumanDescription(builder3, asList(one, two, three));\n        assertThat(builder3.toString()).isEqualTo(\"field 'one', field 'two', and field 'three'\");\n    }",
+        "signature": "void humanDescriptionJoinWorks()",
+        "full_signature": "@Test public void humanDescriptionJoinWorks()",
+        "class_method_signature": "ResourceInjectorTest.humanDescriptionJoinWorks()",
+        "testcase": true,
+        "constructor": false,
+        "invocations": [
+          "emitHumanDescription",
+          "asList",
+          "isEqualTo",
+          "assertThat",
+          "toString",
+          "emitHumanDescription",
+          "asList",
+          "isEqualTo",
+          "assertThat",
+          "toString",
+          "emitHumanDescription",
+          "asList",
+          "isEqualTo",
+          "assertThat",
+          "toString"
+        ]
+      },
+      "focal_class": {
+        "identifier": "ResourceInjector",
+        "superclass": "",
+        "interfaces": "",
+        "fields": [
+          {
+            "original_string": "private final Map<Integer, ResourceInjection> injectionMap =\n            new LinkedHashMap<Integer, ResourceInjection>();",
+            "modifier": "private final",
+            "type": "Map<Integer, ResourceInjection>",
+            "declarator": "injectionMap =\n            new LinkedHashMap<Integer, ResourceInjection>()",
+            "var_name": "injectionMap"
+          },
+          {
+            "original_string": "private final String classPackage;",
+            "modifier": "private final",
+            "type": "String",
+            "declarator": "classPackage",
+            "var_name": "classPackage"
+          },
+          {
+            "original_string": "private final String className;",
+            "modifier": "private final",
+            "type": "String",
+            "declarator": "className",
+            "var_name": "className"
+          },
+          {
+            "original_string": "private final String targetClass;",
+            "modifier": "private final",
+            "type": "String",
+            "declarator": "targetClass",
+            "var_name": "targetClass"
+          },
+          {
+            "original_string": "private String parentInjector;",
+            "modifier": "private",
+            "type": "String",
+            "declarator": "parentInjector",
+            "var_name": "parentInjector"
+          }
+        ],
+        "methods": [
+          {
+            "identifier": "ResourceInjector",
+            "parameters": "(String classPackage, String className, String targetClass)",
+            "modifiers": "",
+            "return": "",
+            "signature": " ResourceInjector(String classPackage, String className, String targetClass)",
+            "full_signature": "  ResourceInjector(String classPackage, String className, String targetClass)",
+            "class_method_signature": "ResourceInjector.ResourceInjector(String classPackage, String className, String targetClass)",
+            "testcase": false,
+            "constructor": true
+          },
+          {
+            "identifier": "emitCast",
+            "parameters": "(StringBuilder builder, TypeMirror fieldType)",
+            "modifiers": "static",
+            "return": "void",
+            "signature": "void emitCast(StringBuilder builder, TypeMirror fieldType)",
+            "full_signature": "static void emitCast(StringBuilder builder, TypeMirror fieldType)",
+            "class_method_signature": "ResourceInjector.emitCast(StringBuilder builder, TypeMirror fieldType)",
+            "testcase": false,
+            "constructor": false
+          },
+          {
+            "identifier": "getType",
+            "parameters": "(TypeMirror type)",
+            "modifiers": "static",
+            "return": "String",
+            "signature": "String getType(TypeMirror type)",
+            "full_signature": "static String getType(TypeMirror type)",
+            "class_method_signature": "ResourceInjector.getType(TypeMirror type)",
+            "testcase": false,
+            "constructor": false
+          },
+          {
+            "identifier": "emitHumanDescription",
+            "parameters": "(StringBuilder builder, List<FieldBinding> bindings)",
+            "modifiers": "static",
+            "return": "void",
+            "signature": "void emitHumanDescription(StringBuilder builder, List<FieldBinding> bindings)",
+            "full_signature": "static void emitHumanDescription(StringBuilder builder, List<FieldBinding> bindings)",
+            "class_method_signature": "ResourceInjector.emitHumanDescription(StringBuilder builder, List<FieldBinding> bindings)",
+            "testcase": false,
+            "constructor": false
+          },
+          {
+            "identifier": "addField",
+            "parameters": "(int key, String name, TypeMirror type)",
+            "modifiers": "",
+            "return": "void",
+            "signature": "void addField(int key, String name, TypeMirror type)",
+            "full_signature": " void addField(int key, String name, TypeMirror type)",
+            "class_method_signature": "ResourceInjector.addField(int key, String name, TypeMirror type)",
+            "testcase": false,
+            "constructor": false
+          },
+          {
+            "identifier": "setParentInjector",
+            "parameters": "(String parentInjector)",
+            "modifiers": "",
+            "return": "void",
+            "signature": "void setParentInjector(String parentInjector)",
+            "full_signature": " void setParentInjector(String parentInjector)",
+            "class_method_signature": "ResourceInjector.setParentInjector(String parentInjector)",
+            "testcase": false,
+            "constructor": false
+          },
+          {
+            "identifier": "getOrCreateExtraBinding",
+            "parameters": "(int key)",
+            "modifiers": "private",
+            "return": "ResourceInjection",
+            "signature": "ResourceInjection getOrCreateExtraBinding(int key)",
+            "full_signature": "private ResourceInjection getOrCreateExtraBinding(int key)",
+            "class_method_signature": "ResourceInjector.getOrCreateExtraBinding(int key)",
+            "testcase": false,
+            "constructor": false
+          },
+          {
+            "identifier": "getFqcn",
+            "parameters": "()",
+            "modifiers": "",
+            "return": "String",
+            "signature": "String getFqcn()",
+            "full_signature": " String getFqcn()",
+            "class_method_signature": "ResourceInjector.getFqcn()",
+            "testcase": false,
+            "constructor": false
+          },
+          {
+            "identifier": "brewJava",
+            "parameters": "()",
+            "modifiers": "",
+            "return": "String",
+            "signature": "String brewJava()",
+            "full_signature": " String brewJava()",
+            "class_method_signature": "ResourceInjector.brewJava()",
+            "testcase": false,
+            "constructor": false
+          },
+          {
+            "identifier": "emitInject",
+            "parameters": "(StringBuilder builder)",
+            "modifiers": "",
+            "return": "void",
+            "signature": "void emitInject(StringBuilder builder)",
+            "full_signature": " void emitInject(StringBuilder builder)",
+            "class_method_signature": "ResourceInjector.emitInject(StringBuilder builder)",
+            "testcase": false,
+            "constructor": false
+          },
+          {
+            "identifier": "emitResourceInjection",
+            "parameters": "(StringBuilder builder, ResourceInjection injection)",
+            "modifiers": "",
+            "return": "void",
+            "signature": "void emitResourceInjection(StringBuilder builder, ResourceInjection injection)",
+            "full_signature": " void emitResourceInjection(StringBuilder builder, ResourceInjection injection)",
+            "class_method_signature": "ResourceInjector.emitResourceInjection(StringBuilder builder, ResourceInjection injection)",
+            "testcase": false,
+            "constructor": false
+          },
+          {
+            "identifier": "emitFieldBindings",
+            "parameters": "(StringBuilder builder, ResourceInjection injection)",
+            "modifiers": "",
+            "return": "void",
+            "signature": "void emitFieldBindings(StringBuilder builder, ResourceInjection injection)",
+            "full_signature": " void emitFieldBindings(StringBuilder builder, ResourceInjection injection)",
+            "class_method_signature": "ResourceInjector.emitFieldBindings(StringBuilder builder, ResourceInjection injection)",
+            "testcase": false,
+            "constructor": false
+          }
+        ],
+        "file": "vitaminsaber/src/main/java/com/w2ji/vitaminsaber/internal/ResourceInjector.java"
+      },
+      "focal_method": {
+        "identifier": "emitHumanDescription",
+        "parameters": "(StringBuilder builder, List<FieldBinding> bindings)",
+        "modifiers": "static",
+        "return": "void",
+        "body": "static void emitHumanDescription(StringBuilder builder, List<FieldBinding> bindings) {\n        switch (bindings.size()) {\n            case 1:\n                builder.append(bindings.get(0).getDescription());\n                break;\n            case 2:\n                builder.append(bindings.get(0).getDescription())\n                        .append(\" and \")\n                        .append(bindings.get(1).getDescription());\n                break;\n            default:\n                for (int i = 0, count = bindings.size(); i < count; i++) {\n                    FieldBinding requiredField = bindings.get(i);\n                    if (i != 0) {\n                        builder.append(\", \");\n                    }\n                    if (i == count - 1) {\n                        builder.append(\"and \");\n                    }\n                    builder.append(requiredField.getDescription());\n                }\n                break;\n        }\n    }",
+        "signature": "void emitHumanDescription(StringBuilder builder, List<FieldBinding> bindings)",
+        "full_signature": "static void emitHumanDescription(StringBuilder builder, List<FieldBinding> bindings)",
+        "class_method_signature": "ResourceInjector.emitHumanDescription(StringBuilder builder, List<FieldBinding> bindings)",
+        "testcase": false,
+        "constructor": false,
+        "invocations": [
+          "size",
+          "append",
+          "getDescription",
+          "get",
+          "append",
+          "append",
+          "append",
+          "getDescription",
+          "get",
+          "getDescription",
+          "get",
+          "size",
+          "get",
+          "append",
+          "append",
+          "append",
+          "getDescription"
+        ]
+      },
+      "repository": {
+        "repo_id": 32488797,
+        "url": "https://github.com/w2ji/VitaminSaber",
+        "language": "Java",
+        "is_fork": false,
+        "fork_count": 7,
+        "stargazer_count": 99,
+        "size": 296,
+        "license": "licensed"
+      }
+    }
+  },
+  "mapping": {
+    "sample_id": "32488797_0",
+    "project_id": "32488797",
+    "labeled_focal_method": "emitHumanDescription",
+    "ast_prediction": "emitHumanDescription",
+    "ast_candidates": [
+      "emitHumanDescription",
+      "emitFieldBindings",
+      "addField",
+      "getOrCreateExtraBinding",
+      "emitCast"
+    ],
+    "naming_prediction": "emitHumanDescription",
+    "naming_candidates": [
+      "emitHumanDescription",
+      "addField",
+      "brewJava",
+      "emitCast",
+      "emitFieldBindings"
+    ],
+    "ast_correct": true,
+    "naming_correct": true,
+    "ast_rank": 1,
+    "naming_rank": 1,
+    "ast_score_details": {
+      "emitCast": {
+        "direct_hits": 0,
+        "token_overlap": 3,
+        "signature_bonus": 0.0,
+        "score": 3.0
+      },
+      "getType": {
+        "direct_hits": 0,
+        "token_overlap": 3,
+        "signature_bonus": 0.0,
+        "score": 3.0
+      },
+      "emitHumanDescription": {
+        "direct_hits": 3,
+        "token_overlap": 11,
+        "signature_bonus": 1.5,
+        "score": 21.5
+      },
+      "addField": {
+        "direct_hits": 0,
+        "token_overlap": 12,
+        "signature_bonus": 0.0,
+        "score": 12.0
+      },
+      "setParentInjector": {
+        "direct_hits": 0,
+        "token_overlap": 0,
+        "signature_bonus": 0.0,
+        "score": 0.0
+      },
+      "getOrCreateExtraBinding": {
+        "direct_hits": 0,
+        "token_overlap": 6,
+        "signature_bonus": 0.0,
+        "score": 6.0
+      },
+      "getFqcn": {
+        "direct_hits": 0,
+        "token_overlap": 0,
+        "signature_bonus": 0.0,
+        "score": 0.0
+      },
+      "brewJava": {
+        "direct_hits": 0,
+        "token_overlap": 0,
+        "signature_bonus": 0.0,
+        "score": 0.0
+      },
+      "emitInject": {
+        "direct_hits": 0,
+        "token_overlap": 3,
+        "signature_bonus": 0.0,
+        "score": 3.0
+      },
+      "emitResourceInjection": {
+        "direct_hits": 0,
+        "token_overlap": 3,
+        "signature_bonus": 0.0,
+        "score": 3.0
+      },
+      "emitFieldBindings": {
+        "direct_hits": 0,
+        "token_overlap": 15,
+        "signature_bonus": 0.0,
+        "score": 15.0
+      }
+    },
+    "naming_score_details": {
+      "emitCast": {
+        "test_name_tokens": [
+          "human",
+          "description",
+          "join"
+        ],
+        "method_tokens": [
+          "emit",
+          "cast"
+        ],
+        "score": 0.0
+      },
+      "getType": {
+        "test_name_tokens": [
+          "human",
+          "description",
+          "join"
+        ],
+        "method_tokens": [
+          "get",
+          "type"
+        ],
+        "score": 0.0
+      },
+      "emitHumanDescription": {
+        "test_name_tokens": [
+          "human",
+          "description",
+          "join"
+        ],
+        "method_tokens": [
+          "emit",
+          "human",
+          "description"
+        ],
+        "score": 0.5
+      },
+      "addField": {
+        "test_name_tokens": [
+          "human",
+          "description",
+          "join"
+        ],
+        "method_tokens": [
+          "add",
+          "field"
+        ],
+        "score": 0.0
+      },
+      "setParentInjector": {
+        "test_name_tokens": [
+          "human",
+          "description",
+          "join"
+        ],
+        "method_tokens": [
+          "set",
+          "parent",
+          "injector"
+        ],
+        "score": 0.0
+      },
+      "getOrCreateExtraBinding": {
+        "test_name_tokens": [
+          "human",
+          "description",
+          "join"
+        ],
+        "method_tokens": [
+          "get",
+          "create",
+          "extra",
+          "binding"
+        ],
+        "score": 0.0
+      },
+      "getFqcn": {
+        "test_name_tokens": [
+          "human",
+          "description",
+          "join"
+        ],
+        "method_tokens": [
+          "get",
+          "fqcn"
+        ],
+        "score": 0.0
+      },
+      "brewJava": {
+        "test_name_tokens": [
+          "human",
+          "description",
+          "join"
+        ],
+        "method_tokens": [
+          "brew",
+          "java"
+        ],
+        "score": 0.0
+      },
+      "emitInject": {
+        "test_name_tokens": [
+          "human",
+          "description",
+          "join"
+        ],
+        "method_tokens": [
+          "emit",
+          "inject"
+        ],
+        "score": 0.0
+      },
+      "emitResourceInjection": {
+        "test_name_tokens": [
+          "human",
+          "description",
+          "join"
+        ],
+        "method_tokens": [
+          "emit",
+          "resource",
+          "injection"
+        ],
+        "score": 0.0
+      },
+      "emitFieldBindings": {
+        "test_name_tokens": [
+          "human",
+          "description",
+          "join"
+        ],
+        "method_tokens": [
+          "emit",
+          "field",
+          "bindings"
+        ],
+        "score": 0.0
+      }
+    }
+  },
+  "evolution": {
+    "sample_id": "32488797_0",
+    "project_id": "32488797",
+    "operator": "predicate_inversion",
+    "method_identifier": "emitHumanDescription",
+    "method_signature": "void emitHumanDescription(StringBuilder builder, List<FieldBinding> bindings)",
+    "original_body": "static void emitHumanDescription(StringBuilder builder, List<FieldBinding> bindings) {\n        switch (bindings.size()) {\n            case 1:\n                builder.append(bindings.get(0).getDescription());\n                break;\n            case 2:\n                builder.append(bindings.get(0).getDescription())\n                        .append(\" and \")\n                        .append(bindings.get(1).getDescription());\n                break;\n            default:\n                for (int i = 0, count = bindings.size(); i < count; i++) {\n                    FieldBinding requiredField = bindings.get(i);\n                    if (i != 0) {\n                        builder.append(\", \");\n                    }\n                    if (i == count - 1) {\n                        builder.append(\"and \");\n                    }\n                    builder.append(requiredField.getDescription());\n                }\n                break;\n        }\n    }",
+    "evolved_body": "static void emitHumanDescription(StringBuilder builder, List<FieldBinding> bindings) {\n        switch (bindings.size()) {\n            case 1:\n                builder.append(bindings.get(0).getDescription());\n                break;\n            case 2:\n                builder.append(bindings.get(0).getDescription())\n                        .append(\" and \")\n                        .append(bindings.get(1).getDescription());\n                break;\n            default:\n                for (int i = 0, count = bindings.size(); i < count; i++) {\n                    FieldBinding requiredField = bindings.get(i);\n                    if (i != 0) {\n                        builder.append(\", \");\n                    }\n                    if (i != count - 1) {\n                        builder.append(\"and \");\n                    }\n                    builder.append(requiredField.getDescription());\n                }\n                break;\n        }\n    }",
+    "target_file": "vitaminsaber/src/main/java/com/w2ji/vitaminsaber/internal/ResourceInjector.java",
+    "diff": "--- original\n+++ evolved\n@@ -14,7 +14,7 @@\n                     if (i != 0) {\n                         builder.append(\", \");\n                     }\n-                    if (i == count - 1) {\n+                    if (i != count - 1) {\n                         builder.append(\"and \");\n                     }\n                     builder.append(requiredField.getDescription());\n",
+    "replaced_exact_body": true,
+    "static_validation_passed": true,
+    "validation_notes": [
+      "static_diff_created"
+    ]
+  },
+  "strategy": "iterative_healing",
+  "original_human_test": "package com.w2ji.vitaminsaber.internal;\n\nimport org.junit.Test;\n\nimport javax.lang.model.type.TypeKind;\nimport javax.lang.model.type.TypeMirror;\nimport javax.lang.model.type.TypeVisitor;\n\nimport static java.util.Arrays.asList;\nimport static org.fest.assertions.api.Assertions.assertThat;\nimport static com.w2ji.vitaminsaber.internal.ResourceInjector.emitHumanDescription;\n\npublic class ResourceInjectorTest {\n\n    @Test\n    public void humanDescriptionJoinWorks() {\n\n        FieldBinding one = new FieldBinding(\"one\", new FakeTypeMirror());\n        FieldBinding two = new FieldBinding(\"two\", new FakeTypeMirror());\n        FieldBinding three = new FieldBinding(\"three\", new FakeTypeMirror());\n\n        StringBuilder builder1 = new StringBuilder();\n        emitHumanDescription(builder1, asList(one));\n        assertThat(builder1.toString()).isEqualTo(\"field 'one'\");\n\n        StringBuilder builder2 = new StringBuilder();\n        emitHumanDescription(builder2, asList(one, two));\n        assertThat(builder2.toString()).isEqualTo(\"field 'one' and field 'two'\");\n\n        StringBuilder builder3 = new StringBuilder();\n        emitHumanDescription(builder3, asList(one, two, three));\n        assertThat(builder3.toString()).isEqualTo(\"field 'one', field 'two', and field 'three'\");\n    }\n\n    private class FakeTypeMirror implements TypeMirror {\n\n        @Override\n        public TypeKind getKind() {\n            return null;\n        }\n\n        @Override\n        public <R, P> R accept(TypeVisitor<R, P> v, P p) {\n            return null;\n        }\n    }\n}\n",
+  "baseline_human_result": {
+    "success": false,
+    "stdout": "[INFO] Scanning for projects...\n[INFO] \n[INFO] -----------------< com.w2ji.vitaminsaber:vitaminsaber >-----------------\n[INFO] Building Vitamin Saber 1.0.2\n[INFO]   from pom.xml\n[INFO] --------------------------------[ jar ]---------------------------------\n[WARNING] 1 problem was encountered while building the effective model for com.google.testing.compile:compile-testing:jar:0.4 during dependency collection step for project (use -X to see details)\n[INFO] ------------------------------------------------------------------------\n[INFO] BUILD FAILURE\n[INFO] ------------------------------------------------------------------------\n[INFO] Total time:  0.891 s\n[INFO] Finished at: 2026-03-09T00:48:37-04:00\n[INFO] ------------------------------------------------------------------------\n[ERROR] Failed to execute goal on project vitaminsaber: Could not resolve dependencies for project com.w2ji.vitaminsaber:vitaminsaber:jar:1.0.2\n[ERROR] dependency: com.sun:tools:jar:1.8.0_421 (system)\n[ERROR] \tCould not find artifact com.sun:tools:jar:1.8.0_421 at specified path C:\\Program Files (x86)\\Java\\jre1.8.0_421/../lib/tools.jar\n[ERROR] \n[ERROR] -> [Help 1]\n[ERROR] \n[ERROR] To see the full stack trace of the errors, re-run Maven with the -e switch.\n[ERROR] Re-run Maven using the -X switch to enable full debug logging.\n[ERROR] \n[ERROR] For more information about the errors and possible solutions, please read the following articles:\n[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/DependencyResolutionException\n",
+    "stderr": "",
+    "summary": "The following general errors were encountered during the Maven build:\n\n- Failed to execute goal on project vitaminsaber: Could not resolve dependencies for project com.w2ji.vitaminsaber:vitaminsaber:jar:1.0.2\n- dependency: com.sun:tools:jar:1.8.0_421 (system)\n- Could not find artifact com.sun:tools:jar:1.8.0_421 at specified path C:\\Program Files (x86)\\Java\\jre1.8.0_421/../lib/tools.jar\n- \n- -> [Help 1]\n- \n- To see the full stack trace of the errors, re-run Maven with the -e switch.\n- Re-run Maven using the -X switch to enable full debug logging.\n- \n- For more information about the errors and possible solutions, please read the following articles:\n- [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/DependencyResolutionException",
+    "compilation": 0,
+    "branch_coverage": null,
+    "line_coverage": null,
+    "method_coverage": null,
+    "mutation_coverage": null
+  },
+  "stale_human_result": {
+    "success": false,
+    "stdout": "[INFO] Scanning for projects...\n[INFO] \n[INFO] -----------------< com.w2ji.vitaminsaber:vitaminsaber >-----------------\n[INFO] Building Vitamin Saber 1.0.2\n[INFO]   from pom.xml\n[INFO] --------------------------------[ jar ]---------------------------------\n[WARNING] 1 problem was encountered while building the effective model for com.google.testing.compile:compile-testing:jar:0.4 during dependency collection step for project (use -X to see details)\n[INFO] ------------------------------------------------------------------------\n[INFO] BUILD FAILURE\n[INFO] ------------------------------------------------------------------------\n[INFO] Total time:  1.015 s\n[INFO] Finished at: 2026-03-09T00:48:41-04:00\n[INFO] ------------------------------------------------------------------------\n[ERROR] Failed to execute goal on project vitaminsaber: Could not resolve dependencies for project com.w2ji.vitaminsaber:vitaminsaber:jar:1.0.2\n[ERROR] dependency: com.sun:tools:jar:1.8.0_421 (system)\n[ERROR] \tCould not find artifact com.sun:tools:jar:1.8.0_421 at specified path C:\\Program Files (x86)\\Java\\jre1.8.0_421/../lib/tools.jar\n[ERROR] \n[ERROR] -> [Help 1]\n[ERROR] \n[ERROR] To see the full stack trace of the errors, re-run Maven with the -e switch.\n[ERROR] Re-run Maven using the -X switch to enable full debug logging.\n[ERROR] \n[ERROR] For more information about the errors and possible solutions, please read the following articles:\n[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/DependencyResolutionException\n",
+    "stderr": "",
+    "summary": "The following general errors were encountered during the Maven build:\n\n- Failed to execute goal on project vitaminsaber: Could not resolve dependencies for project com.w2ji.vitaminsaber:vitaminsaber:jar:1.0.2\n- dependency: com.sun:tools:jar:1.8.0_421 (system)\n- Could not find artifact com.sun:tools:jar:1.8.0_421 at specified path C:\\Program Files (x86)\\Java\\jre1.8.0_421/../lib/tools.jar\n- \n- -> [Help 1]\n- \n- To see the full stack trace of the errors, re-run Maven with the -e switch.\n- Re-run Maven using the -X switch to enable full debug logging.\n- \n- For more information about the errors and possible solutions, please read the following articles:\n- [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/DependencyResolutionException",
+    "compilation": 0,
+    "branch_coverage": null,
+    "line_coverage": null,
+    "method_coverage": null,
+    "mutation_coverage": null
+  },
+  "execution_iteration_count": 0,
+  "inter_agent_loop_count": 0,
+  "critic_rejections": [],
+  "analyst_summaries": [],
+  "latest_candidate_test_path": null,
+  "latest_candidate_hash": null,
+  "latest_build_status": null,
+  "latest_log_paths": {}
+}

@@ -1,0 +1,10 @@
+pandas==2.2.3
+tiktoken==0.8.0
+matplotlib==3.9.2
+numpy==2.1.2
+tqdm~=4.66.6
+PyYAML~=6.0.2
+typing_extensions~=4.12.2
+python-dotenv~=1.0.1
+# Gemini CLI is an external tool and must be installed separately.
+
