@@ -1,5 +1,6 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
+import difflib
 import json
 import math
 import os
@@ -26,7 +27,7 @@ from agentic_build import (
     run_human_stale_check,
     write_candidate_code,
 )
-from agentic_types import AgentTurn, BenchmarkSample, BuildExecutionResult, EvolutionSpec, MappingResult, SyncResult
+from agentic_types import AgentTurn, BenchmarkSample, BuildExecutionResult, EvaluationLabel, EvolutionSpec, MappingResult, SyncResult
 
 
 def _is_windows() -> bool:
@@ -139,6 +140,18 @@ def parse_json_response(text: str) -> Dict[str, Any]:
         return {'verdict': 'reject', 'regression_blindness_flags': ['invalid_json'], 'required_changes': [cleaned]}
 
 
+def _string_list(value: Any) -> List[str]:
+    if value is None:
+        return []
+    if isinstance(value, str):
+        stripped = value.strip()
+        return [stripped] if stripped else []
+    if isinstance(value, (list, tuple, set)):
+        return [str(item).strip() for item in value if str(item).strip()]
+    text = str(value).strip()
+    return [text] if text else []
+
+
 def critic_verdict_is_approval(verdict: Optional[str]) -> bool:
     normalized = (verdict or '').strip().lower()
     return normalized in {'approve', 'approved', 'accept', 'accepted'}
@@ -175,6 +188,55 @@ def extract_test_method_body(code: str, test_method_name: str) -> str:
     return code[body_start:end]
 
 
+def _method_signature_pattern(signature: str, identifier: str) -> Optional[re.Pattern]:
+    if not signature or not identifier:
+        return None
+    parameters_match = re.search(r'\((.*)\)', signature)
+    parameters = parameters_match.group(1) if parameters_match else ''
+    parameter_count = 0 if not parameters.strip() else len([part for part in parameters.split(',') if part.strip()])
+    param_pattern = r'\([^)]*\)'
+    if parameter_count == 0:
+        param_pattern = r'\(\s*\)'
+    signature_prefix = signature.split('(', 1)[0].strip()
+    return_prefix = ''
+    if signature_prefix.endswith(identifier):
+        return_prefix = signature_prefix[: -len(identifier)].strip()
+    modifier_pattern = r'(?:(?:public|protected|private|static|final|synchronized|abstract|native|strictfp)\s+)*'
+    annotation_pattern = r'(?:@[A-Za-z0-9_$.]+(?:\([^)]*\))?\s*)*'
+    if return_prefix:
+        signature_pattern = r'(^[ \t]*' + annotation_pattern + modifier_pattern + re.escape(return_prefix) + r'\s+' + re.escape(identifier) + r'\s*' + param_pattern + r'\s*\{)'
+    else:
+        signature_pattern = r'(^[ \t]*' + annotation_pattern + modifier_pattern + re.escape(identifier) + r'\s*' + param_pattern + r'\s*\{)'
+    return re.compile(signature_pattern, re.MULTILINE)
+
+def extract_method_source_from_file(path: Path, method_signature: str, method_name: str) -> str:
+    if not path.exists():
+        return ''
+    content = path.read_text(encoding='utf-8')
+    pattern = _method_signature_pattern(method_signature, method_name)
+    if pattern is None:
+        return ''
+    match = pattern.search(content)
+    if match is None:
+        return ''
+    start = match.start(1)
+    body_start = content.find('{', match.end(1) - 1)
+    depth = 0
+    end = None
+    for index in range(body_start, len(content)):
+        char = content[index]
+        if char == '{':
+            depth += 1
+        elif char == '}':
+            depth -= 1
+            if depth == 0:
+                end = index + 1
+                break
+    if end is None:
+        return ''
+    return content[start:end]
+
+
 def jaccard_similarity(left: List[str], right: List[str]) -> float:
     left_set = set(left)
     right_set = set(right)
@@ -206,12 +268,109 @@ def deterministic_regression_guard(original_code: str, candidate_code: str, mapp
     return sorted(set(flags))
 
 
-def _build_blackboard(sample: BenchmarkSample, mapping: MappingResult, evolution: EvolutionSpec, strategy: str, original_test_code: str, baseline_result: BuildExecutionResult, stale_result: BuildExecutionResult) -> Dict[str, Any]:
+def _selected_mapping(mapping: MappingResult, label: EvaluationLabel, context_policy: str) -> Dict[str, Any]:
+    if context_policy == 'oracle':
+        return {
+            'mapped_focal_method': label.labeled_focal_method,
+            'mapped_focal_signature': label.labeled_focal_signature,
+            'mapped_focal_class_path': label.focal_class_path,
+            'mapping_confidence': 1.0,
+            'mapping_correct': True,
+        }
+    if context_policy == 'naming_predicted':
+        return {
+            'mapped_focal_method': mapping.naming_prediction,
+            'mapped_focal_signature': mapping.naming_prediction_signature,
+            'mapped_focal_class_path': mapping.naming_prediction_class_path,
+            'mapping_confidence': mapping.naming_confidence,
+            'mapping_correct': mapping.naming_correct,
+        }
+    return {
+        'mapped_focal_method': mapping.ast_prediction,
+        'mapped_focal_signature': mapping.ast_prediction_signature,
+        'mapped_focal_class_path': mapping.ast_prediction_class_path,
+        'mapping_confidence': mapping.ast_confidence,
+        'mapping_correct': mapping.ast_correct,
+    }
+
+
+def _extract_failure_excerpt(result: Dict[str, Any]) -> Optional[str]:
+    text = '\n'.join([
+        str(result.get('summary') or ''),
+        str(result.get('stdout') or ''),
+        str(result.get('stderr') or ''),
+    ])
+    for pattern in (
+        r'org\.junit\.[^\n]*ComparisonFailure:[^\n]*',
+        r'AssertionError:[^\n]*',
+        r'\[ERROR\][^\n]*',
+        r'error:[^\n]*',
+        r'FAILURES!!![^\n]*',
+    ):
+        match = re.search(pattern, text)
+        if match:
+            return re.sub(r'\s+', ' ', match.group(0)).strip()
+    summary = str(result.get('summary') or '').strip()
+    return summary or None
+
+
+def _resolve_runtime_context(sample_root: Path, sample: BenchmarkSample, mapping: MappingResult, label: EvaluationLabel, context_policy: str, stale_result: BuildExecutionResult) -> Tuple[Optional[Dict[str, Any]], str]:
+    selected = _selected_mapping(mapping, label, context_policy)
+    class_path = selected.get('mapped_focal_class_path')
+    method_name = selected.get('mapped_focal_method')
+    method_signature = selected.get('mapped_focal_signature')
+    if not class_path or not method_name or not method_signature:
+        return None, 'mapping_unresolved'
+
+    baseline_path = sample_root / 'baseline_repo' / Path(class_path)
+    evolved_path = sample_root / 'evolved_repo' / Path(class_path)
+    baseline_body = extract_method_source_from_file(baseline_path, method_signature, method_name)
+    evolved_body = extract_method_source_from_file(evolved_path, method_signature, method_name)
+    if not evolved_body:
+        return None, 'mapping_unresolved_method_source'
+
+    diff = ''.join(
+        difflib.unified_diff(
+            baseline_body.splitlines(True),
+            evolved_body.splitlines(True),
+            fromfile='baseline',
+            tofile='evolved',
+        )
+    )
+    context = {
+        'sample_id': sample.sample_id,
+        'context_policy': context_policy,
+        'test_class_name': sample.test_class_name,
+        'test_method_name': sample.test_method_name,
+        'mapped_focal_method': method_name,
+        'mapped_focal_signature': method_signature,
+        'mapped_focal_class_path': class_path,
+        'mapping_confidence': selected['mapping_confidence'],
+        'mapped_evolved_method_body': evolved_body,
+        'mapped_method_diff': diff,
+    }
+    stale_failure = _extract_failure_excerpt(stale_result.to_dict())
+    if stale_failure:
+        context['stale_failure_summary'] = stale_failure
+    return context, 'resolved'
+
+
+def _build_blackboard(sample: BenchmarkSample, mapping: MappingResult, strategy: str, context_policy: str, runtime_context: Optional[Dict[str, Any]], original_test_code: str, baseline_result: BuildExecutionResult, stale_result: BuildExecutionResult) -> Dict[str, Any]:
     return {
         'sample': sample.to_dict(),
-        'mapping': mapping.to_dict(),
-        'evolution': evolution.to_dict(),
         'strategy': strategy,
+        'context_policy': context_policy,
+        'mapping_summary': {
+            'ast_prediction': mapping.ast_prediction,
+            'ast_prediction_signature': mapping.ast_prediction_signature,
+            'ast_prediction_class_path': mapping.ast_prediction_class_path,
+            'ast_confidence': mapping.ast_confidence,
+            'naming_prediction': mapping.naming_prediction,
+            'naming_prediction_signature': mapping.naming_prediction_signature,
+            'naming_prediction_class_path': mapping.naming_prediction_class_path,
+            'naming_confidence': mapping.naming_confidence,
+        },
+        'runtime_context': runtime_context or {},
         'original_human_test': original_test_code,
         'baseline_human_result': baseline_result.to_dict(),
         'stale_human_result': stale_result.to_dict(),
@@ -250,46 +409,8 @@ def _record_turn(turns: List[AgentTurn], sample_id: str, strategy: str, executio
     )
 
 
-def _extract_failure_excerpt(result: Dict[str, Any]) -> Optional[str]:
-    text = '\n'.join([
-        str(result.get('summary') or ''),
-        str(result.get('stdout') or ''),
-        str(result.get('stderr') or ''),
-    ])
-    for pattern in (
-        r'org\.junit\.[^\n]*ComparisonFailure:[^\n]*',
-        r'AssertionError:[^\n]*',
-        r'\[ERROR\][^\n]*',
-        r'error:[^\n]*',
-        r'FAILURES!!![^\n]*',
-    ):
-        match = re.search(pattern, text)
-        if match:
-            return re.sub(r'\s+', ' ', match.group(0)).strip()
-    summary = str(result.get('summary') or '').strip()
-    return summary or None
-
-
 def _format_agent_context(blackboard: Dict[str, Any]) -> str:
-    sample = blackboard.get('sample', {})
-    mapping = blackboard.get('mapping', {})
-    evolution = blackboard.get('evolution', {})
-    context: Dict[str, Any] = {
-        'sample_id': sample.get('sample_id'),
-        'strategy': blackboard.get('strategy'),
-        'test_class_name': sample.get('test_class_name'),
-        'test_method_name': sample.get('test_method_name'),
-        'mapped_focal_method': mapping.get('ast_prediction') or sample.get('labeled_focal_method'),
-        'mapped_focal_signature': evolution.get('method_signature') or sample.get('labeled_focal_signature'),
-        'evolution_operator': evolution.get('operator'),
-        'evolved_focal_method_body': evolution.get('evolved_body') or sample.get('focal_method_body'),
-        'evolution_diff': evolution.get('diff'),
-    }
-    stale_failure = _extract_failure_excerpt(blackboard.get('stale_human_result', {}))
-    if stale_failure:
-        context['stale_failure_summary'] = stale_failure
-    return json.dumps(context, indent=2)
-
+    return json.dumps(blackboard.get('runtime_context', {}), indent=2)
 
 def _generator_prompt(blackboard: Dict[str, Any], strategy: str) -> str:
     agent_context = _format_agent_context(blackboard)
@@ -301,8 +422,8 @@ def _generator_prompt(blackboard: Dict[str, Any], strategy: str) -> str:
         'If the strategy is iterative_healing, minimally patch the existing test while preserving unaffected code.\n'
         'If the strategy is regenerative, rewrite the full test class to fit the evolved source.\n'
         'Do not remove assertions unless you replace them with stronger checks tied to the mapped focal method.\n\n'
-        'STRATEGY: %s\n\nCOMPACT CONTEXT:\n%s\n\nORIGINAL TEST CODE:\n%s'
-        % (strategy, agent_context, blackboard.get('original_human_test', ''))
+        'STRATEGY: %s\nCONTEXT POLICY: %s\n\nCOMPACT CONTEXT:\n%s\n\nORIGINAL TEST CODE:\n%s'
+        % (strategy, blackboard.get('context_policy'), agent_context, blackboard.get('original_human_test', ''))
     )
 
 
@@ -359,7 +480,7 @@ def _sum_role_tokens(turns: List[AgentTurn], role: str) -> int:
     return sum(turn.prompt_tokens + turn.completion_tokens for turn in turns if turn.agent_role == role)
 
 
-def _run_evosuite_baseline(sample: BenchmarkSample, sample_root: Path) -> BuildExecutionResult:
+def _run_evosuite_baseline(sample: BenchmarkSample, label: EvaluationLabel, sample_root: Path) -> BuildExecutionResult:
     evolved_root = sample_root / 'evolved_repo'
     build_metadata = sample.build_metadata
     if build_metadata is None:
@@ -371,17 +492,17 @@ def _run_evosuite_baseline(sample: BenchmarkSample, sample_root: Path) -> BuildE
     if build_metadata.build_system == 'maven':
         original_pom = mavenLib.add_evosuite_pom(str(workspace_module))
         try:
-            if not mavenLib.run_evosuite_generation_maven(str(workspace_module), sample.focal_class_path, system_name):
+            if not mavenLib.run_evosuite_generation_maven(str(workspace_module), label.focal_class_path, system_name):
                 return BuildExecutionResult(False, '', '', 'evosuite_generation_failed', 0, None, None, None, None)
             target_path = evolved_root / sample.test_class_path
-            evosuite_path = Path(str(target_path).replace('%s.java' % sample.test_class_name, '%s_ESTest.java' % sample.focal_class_name))
+            evosuite_path = Path(str(target_path).replace('%s.java' % sample.test_class_name, '%s_ESTest.java' % label.focal_class_name))
             if not evosuite_path.exists():
                 return BuildExecutionResult(False, '', '', 'evosuite_output_missing', 0, None, None, None, None)
-            content = evosuite_path.read_text(encoding='utf-8').replace('public class %s_ESTest' % sample.focal_class_name, 'public class %s' % sample.test_class_name)
+            content = evosuite_path.read_text(encoding='utf-8').replace('public class %s_ESTest' % label.focal_class_name, 'public class %s' % sample.test_class_name)
             target_path.write_text(content, encoding='utf-8')
-            original_instrumented, module_path = instrument_workspace(sample, evolved_root)
+            original_instrumented, module_path = instrument_workspace(sample, label, evolved_root)
             try:
-                return run_build_with_metrics(sample, module_path or str(workspace_module), evolved_root)
+                return run_build_with_metrics(sample, label, module_path or str(workspace_module), evolved_root)
             finally:
                 restore_instrumentation(sample, module_path, original_instrumented)
         finally:
@@ -390,18 +511,18 @@ def _run_evosuite_baseline(sample: BenchmarkSample, sample_root: Path) -> BuildE
             utils.remove_evosuite_scaffolding_files([str(evolved_root / sample.test_class_path)])
     original_build = gradleLib.add_evosuite_build_gradle(str(workspace_module))
     try:
-        instrumented, module_path = instrument_workspace(sample, evolved_root)
+        instrumented, module_path = instrument_workspace(sample, label, evolved_root)
         try:
             subprocess.run(['gradle.bat' if os.name == 'nt' else 'gradle', 'clean', 'classes'], cwd=str(workspace_module), capture_output=True, text=True, timeout=900)
-            if not gradleLib.run_evosuite_generation_gradle(str(evolved_root / sample.focal_class_path)):
+            if not gradleLib.run_evosuite_generation_gradle(str(evolved_root / label.focal_class_path)):
                 return BuildExecutionResult(False, '', '', 'evosuite_generation_failed', 0, None, None, None, None)
-            evosuite_path = Path('evosuite-tests') / Path(sample.test_class_path.replace('%s.java' % sample.test_class_name, '%s_ESTest.java' % sample.focal_class_name))
+            evosuite_path = Path('evosuite-tests') / Path(sample.test_class_path.replace('%s.java' % sample.test_class_name, '%s_ESTest.java' % label.focal_class_name))
             if not evosuite_path.exists():
                 return BuildExecutionResult(False, '', '', 'evosuite_output_missing', 0, None, None, None, None)
             target_path = evolved_root / sample.test_class_path
-            content = evosuite_path.read_text(encoding='utf-8').replace('public class %s_ESTest' % sample.focal_class_name, 'public class %s' % sample.test_class_name)
+            content = evosuite_path.read_text(encoding='utf-8').replace('public class %s_ESTest' % label.focal_class_name, 'public class %s' % sample.test_class_name)
             target_path.write_text(content, encoding='utf-8')
-            return run_build_with_metrics(sample, module_path or str(workspace_module), evolved_root)
+            return run_build_with_metrics(sample, label, module_path or str(workspace_module), evolved_root)
         finally:
             restore_instrumentation(sample, module_path, instrumented)
     finally:
@@ -409,64 +530,35 @@ def _run_evosuite_baseline(sample: BenchmarkSample, sample_root: Path) -> BuildE
             gradleLib.write_build_gradle(str(workspace_module), original_build)
         utils.remove_directory_evosuite_command_line()
 
-
 class GeminiCliSocietyRunner:
     def __init__(self, config: Dict[str, Any], invoker: Optional[GeminiCliInvoker] = None) -> None:
         self.config = config
         self.invoker = invoker or GeminiCliInvoker()
 
-    def run_sample(self, sample: BenchmarkSample, mapping: MappingResult, evolution: EvolutionSpec, strategy: str) -> Tuple[SyncResult, List[AgentTurn], Dict[str, BuildExecutionResult]]:
+    def run_sample(self, sample: BenchmarkSample, label: EvaluationLabel, mapping: MappingResult, evolution: EvolutionSpec, strategy: str, context_policy: str) -> Tuple[SyncResult, List[AgentTurn], Dict[str, BuildExecutionResult]]:
         workspace_root = Path(self.config['paths']['workspace_dir'])
         sample_root = create_sample_workspace(sample, workspace_root, strategy)
         original_test_path = sample_root / 'baseline_repo' / sample.test_class_path
         original_test_code = original_test_path.read_text(encoding='utf-8')
         evolved_root = sample_root / 'evolved_repo'
         evolution_applied = apply_evolution_spec(evolution, evolved_root)
-        baseline_result = run_human_baseline(sample, sample_root) if self.config['baselines']['run_human'] else BuildExecutionResult(False, '', '', 'skipped', 0, None, None, None, None)
-        stale_result = run_human_stale_check(sample, sample_root) if evolution_applied else BuildExecutionResult(False, '', '', 'failed_to_apply_evolution_spec', 0, None, None, None, None)
-
-        blackboard = _build_blackboard(sample, mapping, evolution, strategy, original_test_code, baseline_result, stale_result)
+        baseline_result = run_human_baseline(sample, label, sample_root) if self.config['baselines']['run_human'] else BuildExecutionResult(False, '', '', 'skipped', 0, None, None, None, None)
+        stale_result = run_human_stale_check(sample, label, sample_root) if evolution_applied else BuildExecutionResult(False, '', '', 'failed_to_apply_evolution_spec', 0, None, None, None, None)
+        runtime_context, context_status = _resolve_runtime_context(sample_root, sample, mapping, label, context_policy, stale_result)
+        blackboard = _build_blackboard(sample, mapping, strategy, context_policy, runtime_context, original_test_code, baseline_result, stale_result)
         blackboard_path = sample_root / 'blackboard.json'
         _write_blackboard(blackboard_path, blackboard)
         turns: List[AgentTurn] = []
-        extra_results: Dict[str, BuildExecutionResult] = {}
 
         if not evolution_applied:
-            result = SyncResult(
-                sample_id=sample.sample_id,
-                project_id=sample.project_id,
-                generator='gemini-cli',
-                prompt_technique=strategy,
-                mapped_focal_method=mapping.ast_prediction,
-                mapping_correct=mapping.ast_correct,
-                evolution_operator=evolution.operator,
-                converged=False,
-                compilation=0,
-                branch_coverage=None,
-                line_coverage=None,
-                method_coverage=None,
-                mutation_coverage=None,
-                inter_agent_loops=0,
-                execution_iterations=0,
-                semantic_rejections=0,
-                generator_tokens=0,
-                critic_tokens=0,
-                analyst_tokens=0,
-                total_tokens=0,
-                regression_blindness_flag=True,
-                intent_target_agreement=0.0,
-                intent_assertion_similarity=0.0,
-                intent_fixture_similarity=0.0,
-                intent_pit_component=0.0,
-                intent_preservation_score=0.0,
-                convergence_path='evolution_apply_failed',
-                blackboard_path=str(blackboard_path),
-                transcript_path=None,
-                error_message='failed_to_apply_evolution_spec',
-            )
-            return result, turns, extra_results
+            result = self._empty_result(sample, label, mapping, evolution, strategy, context_policy, runtime_context, blackboard_path, 'evolution_apply_failed', 'failed_to_apply_evolution_spec')
+            return result, turns, self._baseline_results(sample, label, sample_root, baseline_result, stale_result)
 
-        original_instrumentation, module_path = instrument_workspace(sample, evolved_root)
+        if runtime_context is None:
+            result = self._empty_result(sample, label, mapping, evolution, strategy, context_policy, runtime_context, blackboard_path, context_status, context_status)
+            return result, turns, self._baseline_results(sample, label, sample_root, baseline_result, stale_result)
+
+        original_instrumentation, module_path = instrument_workspace(sample, label, evolved_root)
         try:
             max_rejections = int(self.config['limits']['max_semantic_rejections'])
             max_iterations = int(self.config['limits']['max_execution_iterations'])
@@ -491,12 +583,13 @@ class GeminiCliSocietyRunner:
                     critic_prompt = _critic_prompt(blackboard, candidate_code)
                     critic_response, critic_elapsed = self.invoker.invoke('critic', critic_prompt, sample_root, self.config['agents']['critic']['command'])
                     verdict = parse_json_response(critic_response)
-                    deterministic_flags = deterministic_regression_guard(original_test_code, candidate_code, mapping.ast_prediction or sample.labeled_focal_method, sample.test_method_name)
+                    deterministic_flags = deterministic_regression_guard(original_test_code, candidate_code, runtime_context['mapped_focal_method'], sample.test_method_name)
+                    regression_flags = _string_list(verdict.get('regression_blindness_flags'))
                     if deterministic_flags:
                         verdict['verdict'] = 'reject'
-                        verdict.setdefault('regression_blindness_flags', [])
-                        verdict['regression_blindness_flags'] = sorted(set(verdict['regression_blindness_flags']) | set(deterministic_flags))
-                    _record_turn(turns, sample.sample_id, strategy, execution_iteration, semantic_iteration, 'Critic', 'Review Critique', critic_prompt, critic_response, critic_elapsed, verdict=verdict.get('verdict'), notes=';'.join(verdict.get('regression_blindness_flags', [])))
+                        regression_flags = sorted(set(regression_flags) | set(deterministic_flags))
+                    verdict['regression_blindness_flags'] = regression_flags
+                    _record_turn(turns, sample.sample_id, strategy, execution_iteration, semantic_iteration, 'Critic', 'Review Critique', critic_prompt, critic_response, critic_elapsed, verdict=verdict.get('verdict'), notes=';'.join(regression_flags))
                     if critic_verdict_is_approval(verdict.get('verdict')):
                         break
                     semantic_rejections += 1
@@ -511,7 +604,7 @@ class GeminiCliSocietyRunner:
                 if semantic_rejections >= max_rejections:
                     break
 
-                build_result = run_build_with_metrics(sample, module_path or str(evolved_root), evolved_root)
+                build_result = run_build_with_metrics(sample, label, module_path or str(evolved_root), evolved_root)
                 log_dir = sample_root / 'logs'
                 log_dir.mkdir(exist_ok=True)
                 stdout_path = log_dir / ('execution_%s_stdout.log' % execution_iteration)
@@ -524,7 +617,7 @@ class GeminiCliSocietyRunner:
                 _write_blackboard(blackboard_path, blackboard)
 
                 if build_result.success:
-                    post_flags = deterministic_regression_guard(original_test_code, candidate_code, mapping.ast_prediction or sample.labeled_focal_method, sample.test_method_name)
+                    post_flags = deterministic_regression_guard(original_test_code, candidate_code, runtime_context['mapped_focal_method'], sample.test_method_name)
                     if post_flags:
                         semantic_rejections += 1
                         inter_agent_loops += 1
@@ -555,14 +648,18 @@ class GeminiCliSocietyRunner:
             generator_tokens = _sum_role_tokens(turns, 'Generator')
             critic_tokens = _sum_role_tokens(turns, 'Critic')
             analyst_tokens = _sum_role_tokens(turns, 'Analyst')
-            intent = _intent_metrics(original_test_code, candidate_code, mapping.ast_prediction or sample.labeled_focal_method, build_result.mutation_coverage, baseline_result.mutation_coverage)
+            intent = _intent_metrics(original_test_code, candidate_code, runtime_context['mapped_focal_method'], build_result.mutation_coverage, baseline_result.mutation_coverage)
             sync_result = SyncResult(
                 sample_id=sample.sample_id,
                 project_id=sample.project_id,
                 generator='gemini-cli',
                 prompt_technique=strategy,
-                mapped_focal_method=mapping.ast_prediction,
-                mapping_correct=mapping.ast_correct,
+                context_policy=context_policy,
+                mapped_focal_method=runtime_context['mapped_focal_method'],
+                mapped_focal_signature=runtime_context['mapped_focal_signature'],
+                mapped_focal_class_path=runtime_context['mapped_focal_class_path'],
+                mapping_correct=_selected_mapping(mapping, label, context_policy)['mapping_correct'],
+                mapping_confidence=_selected_mapping(mapping, label, context_policy)['mapping_confidence'],
                 evolution_operator=evolution.operator,
                 converged=converged,
                 compilation=build_result.compilation,
@@ -588,20 +685,55 @@ class GeminiCliSocietyRunner:
                 transcript_path=str(transcript_path),
                 error_message=None if converged else build_result.summary,
             )
-            if self.config['baselines']['run_evosuite']:
-                extra_results['evosuite'] = _run_evosuite_baseline(sample, sample_root)
-            if self.config['baselines']['run_human']:
-                extra_results['human'] = stale_result
-                extra_results['human_reference'] = baseline_result
-            return sync_result, turns, extra_results
+            return sync_result, turns, self._baseline_results(sample, label, sample_root, baseline_result, stale_result)
         finally:
             restore_instrumentation(sample, module_path, original_instrumentation)
 
+    def _empty_result(self, sample: BenchmarkSample, label: EvaluationLabel, mapping: MappingResult, evolution: EvolutionSpec, strategy: str, context_policy: str, runtime_context: Optional[Dict[str, Any]], blackboard_path: Path, convergence_path: str, error_message: str) -> SyncResult:
+        selected = _selected_mapping(mapping, label, context_policy)
+        return SyncResult(
+            sample_id=sample.sample_id,
+            project_id=sample.project_id,
+            generator='gemini-cli',
+            prompt_technique=strategy,
+            context_policy=context_policy,
+            mapped_focal_method=runtime_context.get('mapped_focal_method') if runtime_context else selected.get('mapped_focal_method'),
+            mapped_focal_signature=runtime_context.get('mapped_focal_signature') if runtime_context else selected.get('mapped_focal_signature'),
+            mapped_focal_class_path=runtime_context.get('mapped_focal_class_path') if runtime_context else selected.get('mapped_focal_class_path'),
+            mapping_correct=selected['mapping_correct'],
+            mapping_confidence=selected['mapping_confidence'],
+            evolution_operator=evolution.operator,
+            converged=False,
+            compilation=0,
+            branch_coverage=None,
+            line_coverage=None,
+            method_coverage=None,
+            mutation_coverage=None,
+            inter_agent_loops=0,
+            execution_iterations=0,
+            semantic_rejections=0,
+            generator_tokens=0,
+            critic_tokens=0,
+            analyst_tokens=0,
+            total_tokens=0,
+            regression_blindness_flag=True,
+            intent_target_agreement=0.0,
+            intent_assertion_similarity=0.0,
+            intent_fixture_similarity=0.0,
+            intent_pit_component=0.0,
+            intent_preservation_score=0.0,
+            convergence_path=convergence_path,
+            blackboard_path=str(blackboard_path),
+            transcript_path=None,
+            error_message=error_message,
+        )
 
-
-
-
-
-
-
+    def _baseline_results(self, sample: BenchmarkSample, label: EvaluationLabel, sample_root: Path, baseline_result: BuildExecutionResult, stale_result: BuildExecutionResult) -> Dict[str, BuildExecutionResult]:
+        extra_results: Dict[str, BuildExecutionResult] = {}
+        if self.config['baselines']['run_evosuite']:
+            extra_results['evosuite'] = _run_evosuite_baseline(sample, label, sample_root)
+        if self.config['baselines']['run_human']:
+            extra_results['human'] = stale_result
+            extra_results['human_reference'] = baseline_result
+        return extra_results
 

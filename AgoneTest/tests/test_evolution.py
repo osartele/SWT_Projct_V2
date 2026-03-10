@@ -1,8 +1,8 @@
-﻿import unittest
+import unittest
 from pathlib import Path
 
 from agentic_evolution import create_evolution
-from agentic_types import BenchmarkSample
+from agentic_types import BenchmarkSample, EvaluationLabel
 
 
 class EvolutionTests(unittest.TestCase):
@@ -12,22 +12,27 @@ class EvolutionTests(unittest.TestCase):
             dataset_path=Path('sample.json'),
             project_id='1',
             repo_path=Path('repo'),
-            focal_class_name='Flag',
-            focal_class_path='src/main/java/Flag.java',
             test_class_name='FlagTest',
             test_class_path='src/test/java/FlagTest.java',
             test_method_name='returnsTrue',
-            labeled_focal_method='isEnabled',
-            labeled_focal_signature='boolean isEnabled()',
             build_metadata=None,
             runnable=True,
             skip_reason=None,
             repository_url=None,
+        )
+        label = EvaluationLabel(
+            sample_id='sample',
+            project_id='1',
+            focal_class_name='Flag',
+            focal_class_path='src/main/java/Flag.java',
+            labeled_focal_method='isEnabled',
+            labeled_focal_signature='boolean isEnabled()',
             focal_method_body='boolean isEnabled() { return true; }',
             raw_sample={},
         )
-        evolution = create_evolution(sample, ['return_value_change'])
+        evolution = create_evolution(sample, label, ['return_value_change'])
         self.assertEqual('return_value_change', evolution.operator)
+        self.assertEqual('Flag', evolution.target_class_name)
         self.assertIn('return false;', evolution.evolved_body)
 
 

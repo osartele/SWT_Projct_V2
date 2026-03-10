@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import json
 from pathlib import Path
@@ -9,7 +9,7 @@ import pandas as pd
 import gradleLib
 import mavenLib
 import utils
-from agentic_types import BenchmarkSample, BuildMetadata
+from agentic_types import BenchmarkSample, BuildMetadata, EvaluationLabel
 
 
 def _iter_dataset_files(dataset_dir: Path) -> Iterable[Path]:
@@ -70,16 +70,17 @@ def _extract_build_metadata(build_root: Path, build_system: str) -> BuildMetadat
     )
 
 
-def build_manifest(config: Dict[str, Any]) -> List[BenchmarkSample]:
+def build_manifest(config: Dict[str, Any]) -> Tuple[List[BenchmarkSample], List[EvaluationLabel]]:
     dataset_dir = Path(config['paths']['dataset_dir'])
     repos_dir = Path(config['paths']['repos_dir'])
     max_samples = config['filters']['max_samples']
     project_filters = set(str(item) for item in config['filters'].get('project_ids', []))
     sample_filters = set(str(item) for item in config['filters'].get('sample_ids', []))
 
-    manifest: List[BenchmarkSample] = []
+    runtime_manifest: List[BenchmarkSample] = []
+    eval_labels: List[EvaluationLabel] = []
     for dataset_path in _iter_dataset_files(dataset_dir):
-        if max_samples is not None and len(manifest) >= int(max_samples):
+        if max_samples is not None and len(runtime_manifest) >= int(max_samples):
             break
         payload = _load_json(dataset_path)
         project_id = _infer_project_id(dataset_path, payload)
@@ -109,65 +110,76 @@ def build_manifest(config: Dict[str, Any]) -> List[BenchmarkSample]:
         else:
             skip_reason = 'missing_repo'
 
-        manifest.append(
+        runtime_manifest.append(
             BenchmarkSample(
                 sample_id=sample_id,
                 dataset_path=dataset_path,
                 project_id=project_id,
                 repo_path=repo_path if repo_path.exists() else None,
-                focal_class_name=focal.get('identifier', ''),
-                focal_class_path=focal.get('file', ''),
                 test_class_name=test_class.get('identifier', ''),
                 test_class_path=test_class.get('file', ''),
                 test_method_name=test_case.get('identifier', ''),
-                labeled_focal_method=focal_method.get('identifier', ''),
-                labeled_focal_signature=focal_method.get('signature', ''),
                 build_metadata=build_metadata,
                 runnable=runnable,
                 skip_reason=skip_reason,
                 repository_url=payload.get('repository', {}).get('url'),
+            )
+        )
+        eval_labels.append(
+            EvaluationLabel(
+                sample_id=sample_id,
+                project_id=project_id,
+                focal_class_name=focal.get('identifier', ''),
+                focal_class_path=focal.get('file', ''),
+                labeled_focal_method=focal_method.get('identifier', ''),
+                labeled_focal_signature=focal_method.get('signature', ''),
                 focal_method_body=focal_method.get('body', ''),
                 raw_sample=payload,
             )
         )
-    return manifest
+    return runtime_manifest, eval_labels
 
 
-def save_manifest(manifest: List[BenchmarkSample], output_dir: Path) -> Tuple[Path, Path]:
+def save_manifest(runtime_manifest: List[BenchmarkSample], eval_labels: List[EvaluationLabel], output_dir: Path) -> Tuple[Path, Path, Path, Path]:
     output_dir.mkdir(parents=True, exist_ok=True)
-    manifest_json = output_dir / 'manifest.json'
-    manifest_csv = output_dir / 'manifest.csv'
-    rows = [sample.to_dict() for sample in manifest]
-    with manifest_json.open('w', encoding='utf-8') as handle:
-        json.dump(rows, handle, indent=2)
-    pd.DataFrame(rows).to_csv(manifest_csv, index=False)
-    return manifest_json, manifest_csv
+    runtime_json = output_dir / 'runtime_manifest.json'
+    runtime_csv = output_dir / 'runtime_manifest.csv'
+    labels_json = output_dir / 'eval_labels.json'
+    labels_csv = output_dir / 'eval_labels.csv'
+    runtime_rows = [sample.to_dict() for sample in runtime_manifest]
+    label_rows = [label.to_dict() for label in eval_labels]
+    with runtime_json.open('w', encoding='utf-8') as handle:
+        json.dump(runtime_rows, handle, indent=2)
+    pd.DataFrame(runtime_rows).to_csv(runtime_csv, index=False)
+    with labels_json.open('w', encoding='utf-8') as handle:
+        json.dump(label_rows, handle, indent=2)
+    pd.DataFrame(label_rows).to_csv(labels_csv, index=False)
+    return runtime_json, runtime_csv, labels_json, labels_csv
 
 
-def load_manifest(path: Path) -> List[BenchmarkSample]:
+def load_runtime_manifest(path: Path) -> List[BenchmarkSample]:
     payload = _load_json(path)
-    manifest: List[BenchmarkSample] = []
+    runtime_manifest: List[BenchmarkSample] = []
     for item in payload:
         build_metadata = item.get('build_metadata')
-        manifest.append(
+        runtime_manifest.append(
             BenchmarkSample(
                 sample_id=item['sample_id'],
                 dataset_path=Path(item['dataset_path']),
                 project_id=item['project_id'],
                 repo_path=Path(item['repo_path']) if item.get('repo_path') else None,
-                focal_class_name=item['focal_class_name'],
-                focal_class_path=item['focal_class_path'],
                 test_class_name=item['test_class_name'],
                 test_class_path=item['test_class_path'],
                 test_method_name=item['test_method_name'],
-                labeled_focal_method=item['labeled_focal_method'],
-                labeled_focal_signature=item['labeled_focal_signature'],
                 build_metadata=BuildMetadata(**build_metadata) if build_metadata else None,
                 runnable=item['runnable'],
                 skip_reason=item.get('skip_reason'),
                 repository_url=item.get('repository_url'),
-                focal_method_body=item.get('focal_method_body', ''),
-                raw_sample=item.get('raw_sample', {}),
             )
         )
-    return manifest
+    return runtime_manifest
+
+
+def load_eval_labels(path: Path) -> List[EvaluationLabel]:
+    payload = _load_json(path)
+    return [EvaluationLabel(**item) for item in payload]

@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import os
 import platform
@@ -16,7 +16,7 @@ import errorCorrection
 import gradleLib
 import mavenLib
 import utils
-from agentic_types import BenchmarkSample, BuildExecutionResult, EvolutionSpec
+from agentic_types import BenchmarkSample, BuildExecutionResult, BuildMetadata, EvaluationLabel, EvolutionSpec
 
 
 _KNOWN_JAVA_MAJORS = ('5', '6', '7', '8', '11', '17', '21')
@@ -306,7 +306,7 @@ def _minimum_launcher_java_major(build_system: str, module_path: str, target_maj
     return target_major
 
 
-def _resolve_java_toolchain(build_metadata, module_path: str, system: str):
+def _resolve_java_toolchain(build_metadata: BuildMetadata, module_path: str, system: str):
     target_major = _java_major_number(build_metadata.java_version) or 8
     target_expected_env = _expected_java_home_env(build_metadata.java_version)
     target_home = _select_java_home(
@@ -374,13 +374,13 @@ def _apply_toolchain_to_command(command, build_system: str, toolchain: JavaToolc
     return command
 
 
-def _build_dataframe(sample: BenchmarkSample) -> pd.DataFrame:
+def _build_dataframe(sample: BenchmarkSample, label: EvaluationLabel) -> pd.DataFrame:
     return pd.DataFrame([
         {
             'Project': int(sample.project_id) if sample.project_id.isdigit() else sample.project_id,
-            'Focal_Class': sample.focal_class_name,
+            'Focal_Class': label.focal_class_name,
             'Test_Class': sample.test_class_name,
-            'Focal_Path': sample.focal_class_path,
+            'Focal_Path': label.focal_class_path,
             'Test_Path': sample.test_class_path,
             'Module': None,
         }
@@ -436,8 +436,8 @@ def apply_evolution_spec(evolution: EvolutionSpec, repo_root: Path) -> bool:
     return True
 
 
-def instrument_workspace(sample: BenchmarkSample, repo_root: Path) -> Tuple[object, Optional[str]]:
-    dataframe = _build_dataframe(sample)
+def instrument_workspace(sample: BenchmarkSample, label: EvaluationLabel, repo_root: Path) -> Tuple[object, Optional[str]]:
+    dataframe = _build_dataframe(sample, label)
     build_metadata = sample.build_metadata
     if build_metadata is None:
         return None, None
@@ -474,7 +474,7 @@ def _test_selector(sample: BenchmarkSample) -> str:
     return sample.test_class_name
 
 
-def run_build_with_metrics(sample: BenchmarkSample, module_path: str, repo_root: Optional[Path] = None) -> BuildExecutionResult:
+def run_build_with_metrics(sample: BenchmarkSample, label: EvaluationLabel, module_path: str, repo_root: Optional[Path] = None) -> BuildExecutionResult:
     build_metadata = sample.build_metadata
     if build_metadata is None:
         return BuildExecutionResult(False, '', '', 'missing_build_metadata', 0, None, None, None, None)
@@ -511,7 +511,7 @@ def run_build_with_metrics(sample: BenchmarkSample, module_path: str, repo_root:
     if success:
         measures = utils.retrieve_code_coverage_and_cyclomatic_complexity(
             str(repo_root or module_path),
-            _build_dataframe(sample),
+            _build_dataframe(sample, label),
             sample.project_id,
             'Maven' if build_metadata.build_system == 'maven' else 'Gradle',
             None,
@@ -550,20 +550,19 @@ def _maybe_float(value: object) -> Optional[float]:
         return None
 
 
-def run_human_baseline(sample: BenchmarkSample, sample_root: Path) -> BuildExecutionResult:
+def run_human_baseline(sample: BenchmarkSample, label: EvaluationLabel, sample_root: Path) -> BuildExecutionResult:
     repo_root = sample_root / 'baseline_repo'
-    original, module_path = instrument_workspace(sample, repo_root)
+    original, module_path = instrument_workspace(sample, label, repo_root)
     try:
-        return run_build_with_metrics(sample, module_path or str(repo_root), repo_root)
+        return run_build_with_metrics(sample, label, module_path or str(repo_root), repo_root)
     finally:
         restore_instrumentation(sample, module_path, original)
 
 
-def run_human_stale_check(sample: BenchmarkSample, sample_root: Path) -> BuildExecutionResult:
+def run_human_stale_check(sample: BenchmarkSample, label: EvaluationLabel, sample_root: Path) -> BuildExecutionResult:
     repo_root = sample_root / 'evolved_repo'
-    original, module_path = instrument_workspace(sample, repo_root)
+    original, module_path = instrument_workspace(sample, label, repo_root)
     try:
-        return run_build_with_metrics(sample, module_path or str(repo_root), repo_root)
+        return run_build_with_metrics(sample, label, module_path or str(repo_root), repo_root)
     finally:
         restore_instrumentation(sample, module_path, original)
-

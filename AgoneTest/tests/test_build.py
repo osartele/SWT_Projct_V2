@@ -1,4 +1,4 @@
-﻿import tempfile
+import tempfile
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -12,7 +12,7 @@ from agentic_build import (
     create_sample_workspace,
     run_human_stale_check,
 )
-from agentic_types import BenchmarkSample, BuildExecutionResult, BuildMetadata
+from agentic_types import BenchmarkSample, BuildExecutionResult, BuildMetadata, EvaluationLabel
 
 
 class BuildTests(unittest.TestCase):
@@ -23,6 +23,33 @@ class BuildTests(unittest.TestCase):
         (java_home / 'bin' / 'javac.exe').write_text('', encoding='utf-8')
         (java_home / 'lib' / 'tools.jar').write_text('', encoding='utf-8')
         (java_home / 'release').write_text('JAVA_VERSION="%s"\n' % java_version, encoding='utf-8')
+
+    def _sample(self, root: Path, repo_path: Path | None = None, build_metadata: BuildMetadata | None = None) -> BenchmarkSample:
+        return BenchmarkSample(
+            sample_id='sample_0',
+            dataset_path=root / 'sample.json',
+            project_id='123',
+            repo_path=repo_path,
+            test_class_name='ExampleTest',
+            test_class_path='src/test/java/ExampleTest.java',
+            test_method_name='testExample',
+            build_metadata=build_metadata,
+            runnable=True,
+            skip_reason=None,
+            repository_url=None,
+        )
+
+    def _label(self) -> EvaluationLabel:
+        return EvaluationLabel(
+            sample_id='sample_0',
+            project_id='123',
+            focal_class_name='Example',
+            focal_class_path='src/main/java/Example.java',
+            labeled_focal_method='run',
+            labeled_focal_signature='void run()',
+            focal_method_body='void run() {}',
+            raw_sample={},
+        )
 
     def test_remove_readonly_retries_permission_error(self):
         remover = mock.Mock()
@@ -129,38 +156,20 @@ class BuildTests(unittest.TestCase):
             sample_root = root / 'sample'
             evolved_root = sample_root / 'evolved_repo'
             evolved_root.mkdir(parents=True)
-            sample = BenchmarkSample(
-                sample_id='sample_0',
-                dataset_path=root / 'sample.json',
-                project_id='123',
-                repo_path=root / 'repo',
-                focal_class_name='Example',
-                focal_class_path='src/main/java/Example.java',
-                test_class_name='ExampleTest',
-                test_class_path='src/test/java/ExampleTest.java',
-                test_method_name='testExample',
-                labeled_focal_method='run',
-                labeled_focal_signature='void run()',
-                build_metadata=None,
-                runnable=True,
-                skip_reason=None,
-                repository_url=None,
-                focal_method_body='void run() {}',
-                raw_sample={},
-            )
+            sample = self._sample(root, root / 'repo')
+            label = self._label()
             expected = BuildExecutionResult(True, 'stdout', 'stderr', 'build_success', 1, None, None, None, None)
 
-            with mock.patch('agentic_build.apply_evolution_spec') as apply_mock:
-                with mock.patch('agentic_build.instrument_workspace', return_value=('original', None)) as instrument_mock:
-                    with mock.patch('agentic_build.run_build_with_metrics', return_value=expected) as run_mock:
-                        with mock.patch('agentic_build.restore_instrumentation') as restore_mock:
-                            result = run_human_stale_check(sample, sample_root)
+            with mock.patch('agentic_build.instrument_workspace', return_value=('original', None)) as instrument_mock:
+                with mock.patch('agentic_build.run_build_with_metrics', return_value=expected) as run_mock:
+                    with mock.patch('agentic_build.restore_instrumentation') as restore_mock:
+                        result = run_human_stale_check(sample, label, sample_root)
 
-            apply_mock.assert_not_called()
-            instrument_mock.assert_called_once_with(sample, evolved_root)
-            run_mock.assert_called_once_with(sample, str(evolved_root), evolved_root)
+            instrument_mock.assert_called_once_with(sample, label, evolved_root)
+            run_mock.assert_called_once_with(sample, label, str(evolved_root), evolved_root)
             restore_mock.assert_called_once_with(sample, None, 'original')
             self.assertEqual(expected, result)
+
     def test_create_sample_workspace_uses_readonly_handler_when_recreating(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
@@ -168,25 +177,7 @@ class BuildTests(unittest.TestCase):
             workspace_root = root / 'workspaces'
             repo_root.mkdir()
             (repo_root / 'README.md').write_text('sample', encoding='utf-8')
-            sample = BenchmarkSample(
-                sample_id='sample_0',
-                dataset_path=root / 'sample.json',
-                project_id='123',
-                repo_path=repo_root,
-                focal_class_name='Example',
-                focal_class_path='src/main/java/Example.java',
-                test_class_name='ExampleTest',
-                test_class_path='src/test/java/ExampleTest.java',
-                test_method_name='testExample',
-                labeled_focal_method='run',
-                labeled_focal_signature='void run()',
-                build_metadata=None,
-                runnable=True,
-                skip_reason=None,
-                repository_url=None,
-                focal_method_body='void run() {}',
-                raw_sample={},
-            )
+            sample = self._sample(root, repo_root)
             existing_root = workspace_root / sample.project_id / sample.sample_id / 'iterative_healing'
             existing_root.mkdir(parents=True)
 
@@ -200,5 +191,3 @@ class BuildTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
-
-

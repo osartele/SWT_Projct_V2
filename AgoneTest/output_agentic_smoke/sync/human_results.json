@@ -3,6 +3,7 @@
     "sample_id": "32488797_0",
     "project_id": "32488797",
     "Prompt_Technique": "iterative_healing",
+    "Context_Policy": "ast_predicted",
     "Generator(LLM/EVOSUITE)": "human",
     "compilation": 1,
     "branch_coverage": 26.47,
@@ -12,6 +13,8 @@
     "Inter_Agent_Loops": 0,
     "Execution_Iterations": 0,
     "Total_Tokens": 0,
+    "Mapping_Correct": null,
+    "Mapping_Confidence": null,
     "Intent_Preservation_Score": null
   }
 ]

@@ -1,5 +1,5 @@
-sample_id,project_id,operator,method_identifier,method_signature,original_body,evolved_body,target_file,diff,replaced_exact_body,static_validation_passed,validation_notes
-32488797_0,32488797,predicate_inversion,emitHumanDescription,"void emitHumanDescription(StringBuilder builder, List<FieldBinding> bindings)","static void emitHumanDescription(StringBuilder builder, List<FieldBinding> bindings) {
+sample_id,project_id,target_class_name,operator,method_identifier,method_signature,original_body,evolved_body,target_file,diff,replaced_exact_body,static_validation_passed,validation_notes
+32488797_0,32488797,ResourceInjector,predicate_inversion,emitHumanDescription,"void emitHumanDescription(StringBuilder builder, List<FieldBinding> bindings)","static void emitHumanDescription(StringBuilder builder, List<FieldBinding> bindings) {
         switch (bindings.size()) {
             case 1:
                 builder.append(bindings.get(0).getDescription());

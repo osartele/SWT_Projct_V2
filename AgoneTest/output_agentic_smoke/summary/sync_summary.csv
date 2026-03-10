@@ -1,3 +1,4 @@
-Generator(LLM/EVOSUITE),Prompt_Technique,Compilation,Branch_Coverage,Line_Coverage,Method_Coverage,Mutation_Coverage,Inter_Agent_Loops,Execution_Iterations,Total_Tokens,Intent_Preservation
-gemini-cli,iterative_healing,1.0,26.47,16.05,8.33,17.24,0.0,1.0,1954.0,0.9
-human,iterative_healing,1.0,26.47,16.05,8.33,0.0,0.0,0.0,0.0,
+Generator(LLM/EVOSUITE),Prompt_Technique,Context_Policy,Compilation,Branch_Coverage,Line_Coverage,Method_Coverage,Mutation_Coverage,Inter_Agent_Loops,Execution_Iterations,Total_Tokens,Intent_Preservation,Mapping_Correct,Mapping_Confidence
+gemini-cli,iterative_healing,ast_predicted,1.0,26.47,16.05,8.33,17.24,0.0,1.0,2013.0,0.9,1.0,1.0
+human,iterative_healing,ast_predicted,1.0,26.47,16.05,8.33,0.0,0.0,0.0,0.0,,,
+human_reference,reference,ast_predicted,1.0,26.47,16.05,8.33,17.24,0.0,0.0,0.0,,,

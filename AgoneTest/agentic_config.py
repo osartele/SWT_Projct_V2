@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import copy
 from pathlib import Path
@@ -13,11 +13,17 @@ DEFAULT_CONFIG = {
         'repos_dir': '../repos',
         'output_dir': './output_agentic',
         'workspace_dir': './workspaces_agentic',
+        'mapper_cli': './mapper_cli',
     },
     'filters': {
         'project_ids': [],
         'sample_ids': [],
         'max_samples': None,
+    },
+    'mapping': {
+        'backend': 'java_sidecar',
+        'scope': 'module_then_repo',
+        'top_k': 5,
     },
     'agents': {
         'generator': {'model': 'gemini-cli', 'command': 'gemini', 'temperature': 0},
@@ -25,6 +31,9 @@ DEFAULT_CONFIG = {
         'analyst': {'model': 'gemini-cli', 'command': 'gemini', 'temperature': 0},
     },
     'strategies': ['regenerative', 'iterative_healing'],
+    'sync': {
+        'context_policy': 'ast_predicted',
+    },
     'limits': {
         'max_semantic_rejections': 3,
         'max_execution_iterations': 5,

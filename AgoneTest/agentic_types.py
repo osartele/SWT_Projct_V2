@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field, is_dataclass
 from pathlib import Path
@@ -37,19 +37,45 @@ class BenchmarkSample:
     dataset_path: Path
     project_id: str
     repo_path: Optional[Path]
-    focal_class_name: str
-    focal_class_path: str
     test_class_name: str
     test_class_path: str
     test_method_name: str
-    labeled_focal_method: str
-    labeled_focal_signature: str
     build_metadata: Optional[BuildMetadata]
     runnable: bool
     skip_reason: Optional[str]
     repository_url: Optional[str]
+
+    def to_dict(self) -> Dict[str, Any]:
+        return _serialize(self)
+
+
+@dataclass
+class EvaluationLabel:
+    sample_id: str
+    project_id: str
+    focal_class_name: str
+    focal_class_path: str
+    labeled_focal_method: str
+    labeled_focal_signature: str
     focal_method_body: str
     raw_sample: Dict[str, Any] = field(repr=False)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return _serialize(self)
+
+
+@dataclass
+class MethodCandidate:
+    class_name: str
+    class_fqn: Optional[str]
+    class_path: str
+    method_name: str
+    method_signature: str
+    score: float
+    confidence: float
+    evidence: Dict[str, Any]
+    parameter_count: int = 0
+    static_method: bool = False
 
     def to_dict(self) -> Dict[str, Any]:
         return _serialize(self)
@@ -59,17 +85,27 @@ class BenchmarkSample:
 class MappingResult:
     sample_id: str
     project_id: str
-    labeled_focal_method: str
+    oracle_focal_class_path: str
+    oracle_focal_method: str
+    oracle_focal_signature: str
     ast_prediction: Optional[str]
-    ast_candidates: List[str]
+    ast_prediction_signature: Optional[str]
+    ast_prediction_class_path: Optional[str]
+    ast_prediction_class_fqn: Optional[str]
+    ast_candidates: List[MethodCandidate]
     naming_prediction: Optional[str]
-    naming_candidates: List[str]
+    naming_prediction_signature: Optional[str]
+    naming_prediction_class_path: Optional[str]
+    naming_prediction_class_fqn: Optional[str]
+    naming_candidates: List[MethodCandidate]
     ast_correct: bool
     naming_correct: bool
     ast_rank: Optional[int]
     naming_rank: Optional[int]
-    ast_score_details: Dict[str, Any]
-    naming_score_details: Dict[str, Any]
+    ast_confidence: float
+    naming_confidence: float
+    ast_evidence: Dict[str, Any]
+    naming_evidence: Dict[str, Any]
 
     def to_dict(self) -> Dict[str, Any]:
         return _serialize(self)
@@ -79,6 +115,7 @@ class MappingResult:
 class EvolutionSpec:
     sample_id: str
     project_id: str
+    target_class_name: str
     operator: str
     method_identifier: str
     method_signature: str
@@ -136,8 +173,12 @@ class SyncResult:
     project_id: str
     generator: str
     prompt_technique: str
+    context_policy: str
     mapped_focal_method: Optional[str]
+    mapped_focal_signature: Optional[str]
+    mapped_focal_class_path: Optional[str]
     mapping_correct: bool
+    mapping_confidence: float
     evolution_operator: str
     converged: bool
     compilation: int
@@ -167,8 +208,12 @@ class SyncResult:
         payload = _serialize(self)
         payload['Generator(LLM/EVOSUITE)'] = self.generator
         payload['Prompt_Technique'] = self.prompt_technique
+        payload['Context_Policy'] = self.context_policy
         payload['Mapped_Focal_Method'] = self.mapped_focal_method
+        payload['Mapped_Focal_Signature'] = self.mapped_focal_signature
+        payload['Mapped_Focal_Class_Path'] = self.mapped_focal_class_path
         payload['Mapping_Correct'] = int(self.mapping_correct)
+        payload['Mapping_Confidence'] = self.mapping_confidence
         payload['Evolution_Operator'] = self.evolution_operator
         payload['Converged'] = int(self.converged)
         payload['Inter_Agent_Loops'] = self.inter_agent_loops

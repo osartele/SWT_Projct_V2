@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import difflib
 import json
@@ -8,7 +8,7 @@ from typing import Dict, List, Optional
 
 import pandas as pd
 
-from agentic_types import BenchmarkSample, EvolutionSpec
+from agentic_types import BenchmarkSample, EvaluationLabel, EvolutionSpec
 
 
 def _predicate_inversion(body: str) -> Optional[str]:
@@ -55,8 +55,8 @@ OPERATORS = {
 }
 
 
-def create_evolution(sample: BenchmarkSample, operator_names: List[str]) -> EvolutionSpec:
-    original_body = sample.focal_method_body or ''
+def create_evolution(sample: BenchmarkSample, label: EvaluationLabel, operator_names: List[str]) -> EvolutionSpec:
+    original_body = label.focal_method_body or ''
     validation_notes: List[str] = []
     evolved_body = None
     used_operator = None
@@ -84,12 +84,13 @@ def create_evolution(sample: BenchmarkSample, operator_names: List[str]) -> Evol
     return EvolutionSpec(
         sample_id=sample.sample_id,
         project_id=sample.project_id,
+        target_class_name=label.focal_class_name,
         operator=used_operator,
-        method_identifier=sample.labeled_focal_method,
-        method_signature=sample.labeled_focal_signature,
+        method_identifier=label.labeled_focal_method,
+        method_signature=label.labeled_focal_signature,
         original_body=original_body,
         evolved_body=evolved_body,
-        target_file=sample.focal_class_path,
+        target_file=label.focal_class_path,
         diff=diff,
         replaced_exact_body=True,
         static_validation_passed=static_validation_passed,
@@ -97,10 +98,11 @@ def create_evolution(sample: BenchmarkSample, operator_names: List[str]) -> Evol
     )
 
 
-def generate_evolutions(samples: List[BenchmarkSample], config: Dict[str, object], output_dir: Path) -> List[EvolutionSpec]:
+def generate_evolutions(samples: List[BenchmarkSample], labels: List[EvaluationLabel], config: Dict[str, object], output_dir: Path) -> List[EvolutionSpec]:
     output_dir.mkdir(parents=True, exist_ok=True)
     operators = list(config['evolution']['operators'])
-    evolutions = [create_evolution(sample, operators) for sample in samples if sample.runnable]
+    labels_by_sample = {label.sample_id: label for label in labels}
+    evolutions = [create_evolution(sample, labels_by_sample[sample.sample_id], operators) for sample in samples if sample.runnable and sample.sample_id in labels_by_sample]
     rows = [evolution.to_dict() for evolution in evolutions]
     with (output_dir / 'evolutions.json').open('w', encoding='utf-8') as handle:
         json.dump(rows, handle, indent=2)

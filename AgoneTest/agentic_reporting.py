@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import json
 from pathlib import Path
@@ -25,7 +25,8 @@ def summarize_sync_results(results: List[SyncResult], mapping_results: List[Mapp
     frame = pd.DataFrame(rows)
     summary: Dict[str, object] = {}
     if not frame.empty:
-        grouped = frame.groupby(['Generator(LLM/EVOSUITE)', 'Prompt_Technique'], dropna=False).agg(
+        group_columns = ['Generator(LLM/EVOSUITE)', 'Prompt_Technique', 'Context_Policy']
+        grouped = frame.groupby(group_columns, dropna=False).agg(
             Compilation=('compilation', 'mean'),
             Branch_Coverage=('branch_coverage', 'mean'),
             Line_Coverage=('line_coverage', 'mean'),
@@ -35,12 +36,25 @@ def summarize_sync_results(results: List[SyncResult], mapping_results: List[Mapp
             Execution_Iterations=('Execution_Iterations', 'mean'),
             Total_Tokens=('Total_Tokens', 'mean'),
             Intent_Preservation=('Intent_Preservation_Score', 'mean'),
+            Mapping_Correct=('Mapping_Correct', 'mean'),
+            Mapping_Confidence=('Mapping_Confidence', 'mean'),
         ).reset_index()
         grouped.to_csv(output_dir / 'sync_summary.csv', index=False)
         summary['sync_summary'] = grouped.to_dict(orient='records')
-        summary['rq2'] = grouped[['Generator(LLM/EVOSUITE)', 'Prompt_Technique', 'Compilation', 'Line_Coverage', 'Branch_Coverage', 'Method_Coverage', 'Mutation_Coverage']].to_dict(orient='records')
-        summary['rq3'] = grouped[['Generator(LLM/EVOSUITE)', 'Prompt_Technique', 'Intent_Preservation', 'Mutation_Coverage']].to_dict(orient='records')
-        summary['rq4'] = grouped[['Generator(LLM/EVOSUITE)', 'Prompt_Technique', 'Inter_Agent_Loops', 'Execution_Iterations', 'Total_Tokens']].to_dict(orient='records')
+        summary['rq2'] = grouped[['Generator(LLM/EVOSUITE)', 'Prompt_Technique', 'Context_Policy', 'Compilation', 'Line_Coverage', 'Branch_Coverage', 'Method_Coverage', 'Mutation_Coverage']].to_dict(orient='records')
+        summary['rq3'] = grouped[['Generator(LLM/EVOSUITE)', 'Prompt_Technique', 'Context_Policy', 'Mapping_Correct', 'Mapping_Confidence', 'Intent_Preservation', 'Mutation_Coverage']].to_dict(orient='records')
+        summary['rq4'] = grouped[['Generator(LLM/EVOSUITE)', 'Prompt_Technique', 'Context_Policy', 'Inter_Agent_Loops', 'Execution_Iterations', 'Total_Tokens']].to_dict(orient='records')
+
+        predicted_only = frame[frame['Generator(LLM/EVOSUITE)'] == 'gemini-cli']
+        if not predicted_only.empty:
+            by_mapping = predicted_only.groupby(['Context_Policy', 'Mapping_Correct'], dropna=False).agg(
+                Compilation=('compilation', 'mean'),
+                Mutation_Coverage=('mutation_coverage', 'mean'),
+                Intent_Preservation=('Intent_Preservation_Score', 'mean'),
+                Total_Tokens=('Total_Tokens', 'mean'),
+            ).reset_index()
+            by_mapping.to_csv(output_dir / 'sync_summary_by_mapping.csv', index=False)
+            summary['rq3_by_mapping'] = by_mapping.to_dict(orient='records')
 
     rq1 = {
         'ast_top1_accuracy': _mean([1.0 if result.ast_correct else 0.0 for result in mapping_results]),

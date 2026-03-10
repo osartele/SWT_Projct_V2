@@ -3,6 +3,7 @@
     {
       "Generator(LLM/EVOSUITE)": "gemini-cli",
       "Prompt_Technique": "iterative_healing",
+      "Context_Policy": "ast_predicted",
       "Compilation": 1.0,
       "Branch_Coverage": 26.47,
       "Line_Coverage": 16.05,
@@ -10,12 +11,15 @@
       "Mutation_Coverage": 17.24,
       "Inter_Agent_Loops": 0.0,
       "Execution_Iterations": 1.0,
-      "Total_Tokens": 1954.0,
-      "Intent_Preservation": 0.9
+      "Total_Tokens": 2013.0,
+      "Intent_Preservation": 0.9,
+      "Mapping_Correct": 1.0,
+      "Mapping_Confidence": 1.0
     },
     {
       "Generator(LLM/EVOSUITE)": "human",
       "Prompt_Technique": "iterative_healing",
+      "Context_Policy": "ast_predicted",
       "Compilation": 1.0,
       "Branch_Coverage": 26.47,
       "Line_Coverage": 16.05,
@@ -24,13 +28,32 @@
       "Inter_Agent_Loops": 0.0,
       "Execution_Iterations": 0.0,
       "Total_Tokens": 0.0,
-      "Intent_Preservation": NaN
+      "Intent_Preservation": NaN,
+      "Mapping_Correct": NaN,
+      "Mapping_Confidence": NaN
+    },
+    {
+      "Generator(LLM/EVOSUITE)": "human_reference",
+      "Prompt_Technique": "reference",
+      "Context_Policy": "ast_predicted",
+      "Compilation": 1.0,
+      "Branch_Coverage": 26.47,
+      "Line_Coverage": 16.05,
+      "Method_Coverage": 8.33,
+      "Mutation_Coverage": 17.24,
+      "Inter_Agent_Loops": 0.0,
+      "Execution_Iterations": 0.0,
+      "Total_Tokens": 0.0,
+      "Intent_Preservation": NaN,
+      "Mapping_Correct": NaN,
+      "Mapping_Confidence": NaN
     }
   ],
   "rq2": [
     {
       "Generator(LLM/EVOSUITE)": "gemini-cli",
       "Prompt_Technique": "iterative_healing",
+      "Context_Policy": "ast_predicted",
       "Compilation": 1.0,
       "Line_Coverage": 16.05,
       "Branch_Coverage": 26.47,
@@ -40,41 +63,87 @@
     {
       "Generator(LLM/EVOSUITE)": "human",
       "Prompt_Technique": "iterative_healing",
+      "Context_Policy": "ast_predicted",
       "Compilation": 1.0,
       "Line_Coverage": 16.05,
       "Branch_Coverage": 26.47,
       "Method_Coverage": 8.33,
       "Mutation_Coverage": 0.0
+    },
+    {
+      "Generator(LLM/EVOSUITE)": "human_reference",
+      "Prompt_Technique": "reference",
+      "Context_Policy": "ast_predicted",
+      "Compilation": 1.0,
+      "Line_Coverage": 16.05,
+      "Branch_Coverage": 26.47,
+      "Method_Coverage": 8.33,
+      "Mutation_Coverage": 17.24
     }
   ],
   "rq3": [
     {
       "Generator(LLM/EVOSUITE)": "gemini-cli",
       "Prompt_Technique": "iterative_healing",
+      "Context_Policy": "ast_predicted",
+      "Mapping_Correct": 1.0,
+      "Mapping_Confidence": 1.0,
       "Intent_Preservation": 0.9,
       "Mutation_Coverage": 17.24
     },
     {
       "Generator(LLM/EVOSUITE)": "human",
       "Prompt_Technique": "iterative_healing",
+      "Context_Policy": "ast_predicted",
+      "Mapping_Correct": NaN,
+      "Mapping_Confidence": NaN,
       "Intent_Preservation": NaN,
       "Mutation_Coverage": 0.0
+    },
+    {
+      "Generator(LLM/EVOSUITE)": "human_reference",
+      "Prompt_Technique": "reference",
+      "Context_Policy": "ast_predicted",
+      "Mapping_Correct": NaN,
+      "Mapping_Confidence": NaN,
+      "Intent_Preservation": NaN,
+      "Mutation_Coverage": 17.24
     }
   ],
   "rq4": [
     {
       "Generator(LLM/EVOSUITE)": "gemini-cli",
       "Prompt_Technique": "iterative_healing",
+      "Context_Policy": "ast_predicted",
       "Inter_Agent_Loops": 0.0,
       "Execution_Iterations": 1.0,
-      "Total_Tokens": 1954.0
+      "Total_Tokens": 2013.0
     },
     {
       "Generator(LLM/EVOSUITE)": "human",
       "Prompt_Technique": "iterative_healing",
+      "Context_Policy": "ast_predicted",
       "Inter_Agent_Loops": 0.0,
       "Execution_Iterations": 0.0,
       "Total_Tokens": 0.0
+    },
+    {
+      "Generator(LLM/EVOSUITE)": "human_reference",
+      "Prompt_Technique": "reference",
+      "Context_Policy": "ast_predicted",
+      "Inter_Agent_Loops": 0.0,
+      "Execution_Iterations": 0.0,
+      "Total_Tokens": 0.0
+    }
+  ],
+  "rq3_by_mapping": [
+    {
+      "Context_Policy": "ast_predicted",
+      "Mapping_Correct": 1.0,
+      "Compilation": 1.0,
+      "Mutation_Coverage": 17.24,
+      "Intent_Preservation": 0.9,
+      "Total_Tokens": 2013.0
     }
   ],
   "rq1": {

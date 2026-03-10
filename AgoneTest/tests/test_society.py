@@ -1,4 +1,4 @@
-﻿import json
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -8,9 +8,11 @@ from agentic_society import (
     GeminiCliInvoker,
     _critic_prompt,
     _generator_prompt,
+    _string_list,
     critic_verdict_is_approval,
     deterministic_regression_guard,
     extract_code_block,
+    extract_method_source_from_file,
 )
 
 
@@ -46,22 +48,51 @@ class SocietyTests(unittest.TestCase):
         extracted = extract_code_block(response)
         self.assertEqual('package com.example;\n\npublic class ExampleTest {\n}', extracted)
 
-    def test_generator_prompt_uses_compact_context_without_paths(self):
+    def test_extract_method_source_is_anchored_to_method_signature(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            source_path = Path(temp_dir) / 'Example.java'
+            source_path.write_text(
+                'package com.example;\n\n'
+                'public class Example {\n'
+                '    static String helper() {\n'
+                '        return "helper";\n'
+                '    }\n\n'
+                '    static void emitHumanDescription(StringBuilder builder, java.util.List<String> values) {\n'
+                '        builder.append(values.size());\n'
+                '    }\n'
+                '}\n',
+                encoding='utf-8',
+            )
+            extracted = extract_method_source_from_file(
+                source_path,
+                'void emitHumanDescription(StringBuilder builder, java.util.List<String> values)',
+                'emitHumanDescription',
+            )
+        self.assertTrue(extracted.lstrip().startswith('static void emitHumanDescription'))
+        self.assertNotIn('return "helper";', extracted)
+
+    def test_string_list_normalizes_scalar_and_iterable_values(self):
+        self.assertEqual([], _string_list(None))
+        self.assertEqual(['single'], _string_list('single'))
+        self.assertEqual(['one', 'two'], _string_list(['one', ' two ', '']))
+        self.assertEqual(['123'], _string_list(123))
+
+    def test_generator_prompt_uses_runtime_context_without_oracle_fields(self):
         prompt = _generator_prompt(self._make_blackboard(), 'iterative_healing')
         self.assertIn('COMPACT CONTEXT:', prompt)
-        self.assertIn('Your first non-whitespace token must be package, import, or public class.', prompt)
-        self.assertIn('ORIGINAL TEST CODE:', prompt)
-        self.assertNotIn('BLACKBOARD:', prompt)
+        self.assertIn('CONTEXT POLICY: ast_predicted', prompt)
+        self.assertIn('mapped_focal_method', prompt)
+        self.assertIn('mapped_method_diff', prompt)
+        self.assertNotIn('labeled_focal_method', prompt)
+        self.assertNotIn('focal_method_body', prompt)
         self.assertNotIn(r'C:\repo\sample', prompt)
-        self.assertNotIn('C:/repo/sample', prompt)
 
-    def test_critic_prompt_uses_compact_context_without_paths(self):
+    def test_critic_prompt_uses_runtime_context_without_oracle_fields(self):
         prompt = _critic_prompt(self._make_blackboard(), 'package com.example;\npublic class ExampleTest {}')
         self.assertIn('COMPACT CONTEXT:', prompt)
         self.assertIn('stale_failure_summary', prompt)
-        self.assertIn('org.junit.ComparisonFailure', prompt)
-        self.assertNotIn('BLACKBOARD:', prompt)
-        self.assertNotIn(r'C:\repo\sample', prompt)
+        self.assertIn('mapped_focal_method', prompt)
+        self.assertNotIn('labeled_focal_method', prompt)
         self.assertNotIn(r'C:\workspace\evolved_repo\ExampleTest.java', prompt)
 
     def test_critic_verdict_accept_alias_counts_as_approval(self):
@@ -89,32 +120,35 @@ class SocietyTests(unittest.TestCase):
     def _make_blackboard(self):
         return {
             'strategy': 'iterative_healing',
+            'context_policy': 'ast_predicted',
             'sample': {
                 'sample_id': 'sample_1',
-                'repo_path': r'C:\repo\sample',
                 'test_class_name': 'ExampleTest',
                 'test_method_name': 'updatesAssertion',
-                'labeled_focal_method': 'emitHumanDescription',
-                'labeled_focal_signature': 'void emitHumanDescription(StringBuilder builder, List<FieldBinding> bindings)',
-                'focal_method_body': 'static void emitHumanDescription(...) { }',
             },
-            'mapping': {
+            'mapping_summary': {
                 'ast_prediction': 'emitHumanDescription',
+                'ast_prediction_signature': 'void emitHumanDescription(StringBuilder builder, List<FieldBinding> bindings)',
+                'ast_prediction_class_path': 'src/main/java/com/example/Example.java',
+                'ast_confidence': 0.9,
             },
-            'evolution': {
-                'operator': 'predicate_inversion',
-                'method_signature': 'void emitHumanDescription(StringBuilder builder, List<FieldBinding> bindings)',
-                'evolved_body': 'static void emitHumanDescription(...) { if (i != count - 1) { builder.append("and "); } }',
-                'diff': '@@\n-if (i == count - 1)\n+if (i != count - 1)',
+            'runtime_context': {
+                'sample_id': 'sample_1',
+                'context_policy': 'ast_predicted',
+                'test_class_name': 'ExampleTest',
+                'test_method_name': 'updatesAssertion',
+                'mapped_focal_method': 'emitHumanDescription',
+                'mapped_focal_signature': 'void emitHumanDescription(StringBuilder builder, List<FieldBinding> bindings)',
+                'mapped_focal_class_path': 'src/main/java/com/example/Example.java',
+                'mapping_confidence': 0.9,
+                'mapped_evolved_method_body': 'static void emitHumanDescription(...) { }',
+                'mapped_method_diff': '@@\n-if (i == count - 1)\n+if (i != count - 1)',
+                'stale_failure_summary': "org.junit.ComparisonFailure: expected:<field 'one'> but was:<and field 'one'>",
             },
             'original_human_test': 'package com.example;\n\npublic class ExampleTest {\n    @Test public void updatesAssertion() {}\n}',
-            'stale_human_result': {
-                'summary': 'build_success',
-                'stdout': "org.junit.ComparisonFailure: expected:<field 'one', field 'two', and field 'three'> but was:<and field 'one', and field 'two', field 'three'>\n    at C:\\workspace\\evolved_repo\\ExampleTest.java:32",
-                'stderr': '',
-            },
         }
 
 
 if __name__ == '__main__':
     unittest.main()
+

@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import argparse
 import json
@@ -7,21 +7,27 @@ from typing import Dict, List, Tuple
 
 from agentic_config import load_config
 from agentic_evolution import generate_evolutions, load_evolutions
-from agentic_manifest import build_manifest, load_manifest, save_manifest
+from agentic_manifest import build_manifest, load_eval_labels, load_runtime_manifest, save_manifest
 from agentic_mapping import evaluate_mapping, load_mapping_results
 from agentic_reporting import save_sync_results, summarize_sync_results
 from agentic_society import GeminiCliSocietyRunner
-from agentic_types import BenchmarkSample, BuildExecutionResult, EvolutionSpec, MappingResult, SyncResult
+from agentic_types import BenchmarkSample, BuildExecutionResult, EvaluationLabel, EvolutionSpec, MappingResult, SyncResult
 
 
 def _default_config_path() -> Path:
     return Path(__file__).with_name('run_settings.yaml')
 
 
-def _manifest_paths(config: Dict[str, object]) -> Tuple[Path, Path]:
+def _runtime_manifest_paths(config: Dict[str, object]) -> Tuple[Path, Path]:
     output_dir = Path(config['paths']['output_dir'])
     manifest_dir = output_dir / 'manifest'
-    return manifest_dir / 'manifest.json', manifest_dir / 'manifest.csv'
+    return manifest_dir / 'runtime_manifest.json', manifest_dir / 'runtime_manifest.csv'
+
+
+def _eval_label_paths(config: Dict[str, object]) -> Tuple[Path, Path]:
+    output_dir = Path(config['paths']['output_dir'])
+    manifest_dir = output_dir / 'manifest'
+    return manifest_dir / 'eval_labels.json', manifest_dir / 'eval_labels.csv'
 
 
 def _mapping_paths(config: Dict[str, object]) -> Tuple[Path, Path]:
@@ -36,12 +42,20 @@ def _evolution_paths(config: Dict[str, object]) -> Tuple[Path, Path]:
     return evolution_dir / 'evolutions.json', evolution_dir / 'evolutions.csv'
 
 
-def _baseline_row(sample: BenchmarkSample, strategy: str, name: str, baseline: BuildExecutionResult) -> Dict[str, object]:
+def _context_policies(config: Dict[str, object]) -> List[str]:
+    raw = config.get('sync', {}).get('context_policy', 'ast_predicted')
+    if isinstance(raw, list):
+        return [str(item) for item in raw]
+    return [str(raw)]
+
+
+def _baseline_row(sample: BenchmarkSample, strategy: str, context_policy: str, name: str, baseline: BuildExecutionResult) -> Dict[str, object]:
     prompt_technique = strategy if name == 'human' else ('reference' if name == 'human_reference' else 'evosuite')
     return {
         'sample_id': sample.sample_id,
         'project_id': sample.project_id,
         'Prompt_Technique': prompt_technique,
+        'Context_Policy': context_policy,
         'Generator(LLM/EVOSUITE)': name,
         'compilation': baseline.compilation,
         'branch_coverage': baseline.branch_coverage,
@@ -51,43 +65,49 @@ def _baseline_row(sample: BenchmarkSample, strategy: str, name: str, baseline: B
         'Inter_Agent_Loops': 0,
         'Execution_Iterations': 0,
         'Total_Tokens': 0,
+        'Mapping_Correct': None,
+        'Mapping_Confidence': None,
         'Intent_Preservation_Score': None,
     }
 
 
 def cmd_prepare(config: Dict[str, object]) -> None:
-    manifest = build_manifest(config)
-    manifest_json, manifest_csv = save_manifest(manifest, _manifest_paths(config)[0].parent)
-    print('Saved manifest JSON to %s' % manifest_json)
-    print('Saved manifest CSV to %s' % manifest_csv)
-    runnable = len([sample for sample in manifest if sample.runnable])
-    skipped = len(manifest) - runnable
+    runtime_manifest, eval_labels = build_manifest(config)
+    runtime_json, runtime_csv, labels_json, labels_csv = save_manifest(runtime_manifest, eval_labels, _runtime_manifest_paths(config)[0].parent)
+    print('Saved runtime manifest JSON to %s' % runtime_json)
+    print('Saved runtime manifest CSV to %s' % runtime_csv)
+    print('Saved eval labels JSON to %s' % labels_json)
+    print('Saved eval labels CSV to %s' % labels_csv)
+    runnable = len([sample for sample in runtime_manifest if sample.runnable])
+    skipped = len(runtime_manifest) - runnable
     print('Prepared %s runnable samples and %s skipped samples.' % (runnable, skipped))
 
 
 def cmd_map(config: Dict[str, object]) -> None:
-    manifest_json, _ = _manifest_paths(config)
-    manifest = load_manifest(manifest_json)
-    results = evaluate_mapping(manifest, _mapping_paths(config)[0].parent)
+    runtime_manifest = load_runtime_manifest(_runtime_manifest_paths(config)[0])
+    eval_labels = load_eval_labels(_eval_label_paths(config)[0])
+    results = evaluate_mapping(runtime_manifest, eval_labels, config, _mapping_paths(config)[0].parent)
     print('Evaluated mapping for %s runnable samples.' % len(results))
 
 
 def cmd_evolve(config: Dict[str, object]) -> None:
-    manifest_json, _ = _manifest_paths(config)
-    manifest = load_manifest(manifest_json)
-    evolutions = generate_evolutions(manifest, config, _evolution_paths(config)[0].parent)
+    runtime_manifest = load_runtime_manifest(_runtime_manifest_paths(config)[0])
+    eval_labels = load_eval_labels(_eval_label_paths(config)[0])
+    evolutions = generate_evolutions(runtime_manifest, eval_labels, config, _evolution_paths(config)[0].parent)
     print('Generated %s evolution specs.' % len(evolutions))
 
 
-def _load_inputs(config: Dict[str, object]) -> Tuple[List[BenchmarkSample], List[MappingResult], List[EvolutionSpec]]:
-    manifest = load_manifest(_manifest_paths(config)[0])
+def _load_inputs(config: Dict[str, object]) -> Tuple[List[BenchmarkSample], List[EvaluationLabel], List[MappingResult], List[EvolutionSpec]]:
+    runtime_manifest = load_runtime_manifest(_runtime_manifest_paths(config)[0])
+    eval_labels = load_eval_labels(_eval_label_paths(config)[0])
     mapping = load_mapping_results(_mapping_paths(config)[0])
     evolutions = load_evolutions(_evolution_paths(config)[0])
-    return manifest, mapping, evolutions
+    return runtime_manifest, eval_labels, mapping, evolutions
 
 
 def cmd_sync(config: Dict[str, object]) -> None:
-    manifest, mapping_results, evolutions = _load_inputs(config)
+    manifest, eval_labels, mapping_results, evolutions = _load_inputs(config)
+    labels_by_sample = {label.sample_id: label for label in eval_labels}
     mapping_by_sample = {result.sample_id: result for result in mapping_results}
     evolution_by_sample = {result.sample_id: result for result in evolutions}
     output_dir = Path(config['paths']['output_dir']) / 'sync'
@@ -98,14 +118,22 @@ def cmd_sync(config: Dict[str, object]) -> None:
     for sample in manifest:
         if not sample.runnable:
             continue
-        if sample.sample_id not in mapping_by_sample or sample.sample_id not in evolution_by_sample:
+        if sample.sample_id not in mapping_by_sample or sample.sample_id not in evolution_by_sample or sample.sample_id not in labels_by_sample:
             continue
         for strategy in config['strategies']:
-            print('Synchronizing %s with %s' % (sample.sample_id, strategy))
-            result, _, baseline_results = runner.run_sample(sample, mapping_by_sample[sample.sample_id], evolution_by_sample[sample.sample_id], strategy)
-            sync_results.append(result)
-            for name, baseline in baseline_results.items():
-                extras.setdefault(name, []).append(_baseline_row(sample, strategy, name, baseline))
+            for context_policy in _context_policies(config):
+                print('Synchronizing %s with %s (%s)' % (sample.sample_id, strategy, context_policy))
+                result, _, baseline_results = runner.run_sample(
+                    sample,
+                    labels_by_sample[sample.sample_id],
+                    mapping_by_sample[sample.sample_id],
+                    evolution_by_sample[sample.sample_id],
+                    strategy,
+                    context_policy,
+                )
+                sync_results.append(result)
+                for name, baseline in baseline_results.items():
+                    extras.setdefault(name, []).append(_baseline_row(sample, strategy, context_policy, name, baseline))
 
     save_sync_results(sync_results, output_dir)
     for name, rows in extras.items():
@@ -124,7 +152,7 @@ def cmd_summarize(config: Dict[str, object]) -> None:
         filtered = {key: value for key, value in row.items() if key in SyncResult.__dataclass_fields__}
         sync_results.append(SyncResult(**filtered))
     baseline_rows: List[Dict[str, object]] = []
-    for name in ('human', 'evosuite'):
+    for name in ('human', 'evosuite', 'human_reference'):
         path = sync_dir / ('%s_results.json' % name)
         if path.exists():
             baseline_rows.extend(json.loads(path.read_text(encoding='utf-8')))

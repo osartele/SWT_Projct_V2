@@ -1,8 +1,9 @@
-﻿paths:
+paths:
   dataset_dir: ../classes2test
   repos_dir: ../repos
   output_dir: ./output_agentic_smoke
   workspace_dir: ./workspaces_agentic_smoke
+  mapper_cli: ./mapper_cli
 
 filters:
   project_ids:
@@ -10,6 +11,11 @@ filters:
   sample_ids:
     - '32488797_0'
   max_samples: 1
+
+mapping:
+  backend: java_sidecar
+  scope: module_then_repo
+  top_k: 5
 
 agents:
   generator:
@@ -28,6 +34,9 @@ agents:
 strategies:
   - iterative_healing
 
+sync:
+  context_policy: ast_predicted
+
 limits:
   max_semantic_rejections: 2
   max_execution_iterations: 2
@@ -43,4 +52,3 @@ evolution:
 baselines:
   run_human: true
   run_evosuite: false
-

@@ -1,0 +1,23 @@
+[
+  {
+    "sample_id": "32488797_0",
+    "dataset_path": "C:\\Users\\osart\\SWT_Project_Try2\\classes2test\\32488797_0.json",
+    "project_id": "32488797",
+    "repo_path": "C:\\Users\\osart\\SWT_Project_Try2\\repos\\32488797",
+    "test_class_name": "ResourceInjectorTest",
+    "test_class_path": "vitaminsaber/src/test/java/com/w2ji/vitaminsaber/internal/ResourceInjectorTest.java",
+    "test_method_name": "humanDescriptionJoinWorks",
+    "build_metadata": {
+      "build_system": "maven",
+      "module_path": "C:\\Users\\osart\\SWT_Project_Try2\\repos\\32488797\\vitaminsaber",
+      "java_version": "1.6",
+      "junit_version": "4.10",
+      "testng_version": null,
+      "compiler_version": "3.8.1",
+      "has_mockito": false
+    },
+    "runnable": true,
+    "skip_reason": null,
+    "repository_url": "https://github.com/w2ji/VitaminSaber"
+  }
+]

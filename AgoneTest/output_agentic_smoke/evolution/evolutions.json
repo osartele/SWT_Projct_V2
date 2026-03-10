@@ -2,6 +2,7 @@
   {
     "sample_id": "32488797_0",
     "project_id": "32488797",
+    "target_class_name": "ResourceInjector",
     "operator": "predicate_inversion",
     "method_identifier": "emitHumanDescription",
     "method_signature": "void emitHumanDescription(StringBuilder builder, List<FieldBinding> bindings)",
